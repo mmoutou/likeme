@@ -21,7 +21,7 @@ switch(whoami,
        LinuxMM = {baseDir <- "/home/michael/gitwork/LikeMe/";},
        GeertJanMac= {baseDir <- "/Users/geert-janwill/Dropbox/GJW_LikeMe/"; })
 
-codeDir <- paste(baseDir,"Rscripts/",sep='')
+codeDir <- paste(baseDir,"likeme-Socio3/",sep='')
 # --------------------------------------------------------------------------
 
 # LikeMe.R has most of the functions that for this project :
@@ -30,16 +30,18 @@ source(paste(codeDir,'LikeMe.R',sep=''));
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # SLPsocio3 is the second, more advanced 'Inference by counting model' (Michael's model B)
+# To test it insides, run the first 45 lines of roughInferSE.R, incl. D <- D17 , then:
+# ptN=1; datAr=D; onlySLP=0; check=1; parMat =  c(0.67, 0.75, 2,  0.5,  4, 6, 0.2,   0.1,  5 ) 
 SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
 # parMat has rows with the parameters for each pt.
 # datAr has a page for each pt, and Ntr rows., gp pred  obs SE cols.
 #
-# par. row must be: c('SEb', 'sensi','sesh', 'a0min', 'n0', 'nMax','Tresp', 'Bresp')
-# e.g.   parMat =   c(0.67,     2,     1.5,    2,       4,    6,     0.2,    0.1 ) 
+# par. row must be: c('accP0', 'sensi', 'sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal')
+# e.g.   parMat =   c(0.67,     0.75,     2,     0.5,      4,    6,     0.2,    0.1,    5 ) 
 #        sensitivity of pAcc->SE, threshold of pAcc->SE etc.
 
  M <- 4;          # Number of rater groups.
- SEgenMeth <- 2;  # should generated SE be random (1) from component (group) distros, 
+ SEgenMeth <- 2;  # should generated SE be random (1) from component (group) distro, 
                   # expectation (0), overall beta (2) ...
  eps <- 1e-10;    # a very small number to catch ln(0) etc ...
 
@@ -54,7 +56,7 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
     parMat <- array(parMat,c(1,length(parMat)));
   }
  }
- colnames(parMat) <- c('SEb','sensi','sesh','a0min','n0','nMax','Tresp','Bresp');
+ colnames(parMat) <- c('accP0', 'sensi', 'sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal')
  
  Nptot <- dim(datAr)[3];
  Ntrtot <- dim(datAr)[1];# this will sadly have to be fiddled with later, usually to
@@ -88,7 +90,7 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
     
    # Initial beliefs about ratings by others (groups)
    # alpha0s spaced up from a0min geometrically so that aBase makes sense :
-   d <- 1 - parMat[ptN,4]/parMat[ptN,5]
+   d <- 1 - parMat[ptN,4]/parMat[ptN,5]          # Note division by n0
    r <- exp(2/3*log((1-parMat[ptN,1])/d));
    abnPol[1,aInd,ptN] <- parMat[ptN,5]*(1-d*r^(0:3)); 
        # linear, when parMat gave a0max and a0min, was
@@ -100,9 +102,24 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
    adecay <- (nMax-3)/(nMax-2) ;  # to be used for 'too much data to remember'
 
    # parameters for mapping acceptance py to SE (don't use lower case a, b !)
-   A <- parMat[ptN,'sensi'];        B <- parMat[ptN,'sesh'];
+   A <- parMat[ptN,'sensi'];          B <- parMat[ptN,'sesh'];
+   # The shift or offset sesh has to be consistent with baseline SE and other beliefs.
+   # so that if expectations above the approval rates etc. turned out to be true, 
+   # then self-evaluation would, remain stable. So, if the above were true, the 
+   # average acceptance rate would be:
+   nBal <- parMat[ptN,'nBal'];
+   aBal <- parMat[ptN,'accP0']*nBal;    bBal <- nBal - aBal; 
+   n0   <- parMat[ptN,'n0'];
+   accPeff <- ( aBal + mean(abnPol[1,aInd,ptN])*nMax/n0) / 
+              ( nBal + nMax);
+   abnPol[1,'accP',ptN] <- accPeff;
+   # And this would correspond to an 'equilibrium SE' of:
+   abnPol[1,'expSE',ptN] <- accP2SE(accPeff,A,B);
    
-   if (check){
+   # Reminder - n0 is the denominator for a0, but it is included in the data that
+   # will be modified, so the notional data it denotes is subset of the max that will
+   # be included in the Nmax :
+   if (check){  
      if (nMax-parMat[ptN,5] < 0) {
        print(paste('At ptN',ptN,' params:')); print(parMat[ptN,]);
        stop('Please make sure Nmax-n0 >= 0');
@@ -114,8 +131,8 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
    datAr[vecTRUE(datAr[,4,ptN] >=1),4,ptN] <- 1-eps;
 
    # Now for acceptance prediction response function parameters:
-   Tresp = parMat[ptN,'Tresp'];   # this and Hresp below scaled to be
-   Hresp = parMat[ptN,'Hresp'];   # tuned to probability-like calcs ...
+   Tpred = parMat[ptN,'Tpred'];   # this and Bpred below scaled to be
+   Bpred = parMat[ptN,'Bpred'];   # tuned to probability-like calcs ...
      
    # loop over trials
    for (trN in 1:Ntrtot){
@@ -130,7 +147,7 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
      # Prob. of 'accept' response emitted (this is BEFORE rating seen),
      # if present. NB we will use beliefs after last trial, i.e. abnPol[trN,...
      ratingP <- 1/(1+exp((1-2*(abnPol[trN,aInd[gpI],ptN]/abnPol[trN,nInd[gpI],ptN] +
-                                          Hresp))/Tresp));
+                                          Bpred))/Tpred));
      abnPol[trN+1,accPI,ptN] <- ratingP;  # Store                          
     
      predAcc <- datAr[trN,2,ptN]; # rating that actual participant predicted.
@@ -145,7 +162,8 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
      nSoFar <- abnPol[trN,nInd[gpI],ptN];
      nofb = datAr[trN,'nofb',ptN];  # 0 if feedback given, 1 otherwise, so if no
                                         # feedback given don't augment evidence index
-     if (!nofb) {  # If not feedback was given, leave all the a,b,n alone ...
+     if (!nofb) {  # If not feedback was given, we' leave all the a,b,n alone,
+                   # but !nofb means that feedback was given, so:
        apprfb = (datAr[trN,3,ptN]+1)/2 ; # approval or not, i.e. convert from -1 1 to 0 1
        if ((nSoFar+1) <= nMax){
         abnPol[trN+1,nInd[gpI],ptN] <- abnPol[trN,nInd[gpI],ptN]+1;
@@ -163,68 +181,60 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
         abnPol[trN+1,bInd[gpI],ptN] <- nMax - abnPol[trN+1,aInd[gpI],ptN];    
     
        } # end if we have or haven't maxed out the trials to calc. over
-    }
+     }
          
-    # Consider SE as a map from prob. of acceptance to a scale over c(0,1)
-    # & calc. p density at the new SE reported, if valid. IT HAS TO CORRESPOND TO THE
-    # WAY SE IS GENERATED (e.g. for synthetic data ...)
-    # We'll express the overall SE distribution as a mixture of Beta distros.
-    #datAr[trN,4,ptN]
-    #  First express the actually expressed SE from experiment in terms of an
-    #  acceptance probability :
-    SEdat = datAr[trN,4,ptN] ; 
-    experAccP <- SE2accP( SEdat,A,B); 
-    if (is.na(datAr[trN,4,ptN])) {
-      abnPol[trN+1,SEPDI,ptN] <- NA ;
-    } else if ((SEgenMeth==0) || (SEgenMeth==1)) {
-      # Actually for ==0 above isn't quite consistent ...
-      accPdens <- mean(dbeta( experAccP, 
-                    abnPol[trN+1,aInd,ptN], abnPol[trN+1,bInd,ptN]));
-      # SE density also scaled by the slope of the accP(SE) map : 
-      abnPol[trN+1,SEPDI,ptN] <- accPdens * slopeSE2accP(SEdat,A,B,accPdens);
-    } else if (SEgenMeth==2) {
-      a <- sum(abnPol[trN+1,aInd,ptN]) ;
-      b <- sum(abnPol[trN+1,bInd,ptN]) ;  
-      accPdens <- dbeta( experAccP , a, b); 
-      # SE density scaled by the slope of the accP(SE) map : 
-      abnPol[trN+1,SEPDI,ptN] <- accPdens * slopeSE2accP(SEdat,A,B,accPdens);
-    }
-    
-    
-    ##                      'reported' and generated-data  SE 
-    #  - note selection var SEgenMeth
-    if (SEgenMeth==1)  {  # should generated SE be random (1) by component
-                          # expectation (0) or ...
-      
-      # first select which component to sample from:
-      comp <- sample(1:M,1);
-      # The SE beta distros here do NOT include 'private data' :
-      a <- abnPol[trN+1,aInd[comp],ptN]  ; 
-      b <- abnPol[trN+1,bInd[comp],ptN]  ; 
-      # Now fll in expected and sampled SE !
-      abnPol[trN+1,expSEI,ptN] <- accP2SE(a/(a+b), A, B);  
-      abnPol[trN+1,genSEI,ptN] <- accP2SE(rbeta(1,a,b), A, B);  
-      
-    } else if (SEgenMeth==0) {  # 'reported' SE in genSE col. as
-          # TRANSFORMED overall expectation:
-          accSum <- 0;
-          for (i in 1:M){
-            accSum <- accSum + abnPol[trN+1,aInd[i],ptN]/abnPol[trN+1,nInd[i],ptN];   
-          }  
-          abnPol[trN+1,genSEI,ptN] <- accP2SE(accSum/M, A, B); 
-          abnPol[trN+1,expSEI,ptN] <- abnPol[trN+1,genSEI,ptN];   # identical copy
-    } else if (SEgenMeth==2) {  # 'reported' SE in genSE col. from an
-                                #    boverall beta ... 
-      # calc. a and b again, as may not have been calculated above. 
-      a <- sum(abnPol[trN+1,aInd,ptN]) ;
-      b <- sum(abnPol[trN+1,bInd,ptN]) ;   
-      abnPol[trN+1,expSEI,ptN] <- accP2SE(a/(a+b), A,B);
-      # for debug:
-      abnPol[trN+1,genSEI,ptN] <- abnPol[trN+1,expSEI,ptN]; 
-      #abnPol[trN+1,genSEI,ptN] <- accP2SE(rbeta(1,a,b), A,B);
-      
-    }  # end if else 
-    # End generate SE value to report. 
+     # Consider SE as a map from prob. of acceptance to a scale over c(0,1)
+     # & calc. p density at the new SE reported, if valid. IT HAS TO CORRESPOND TO THE
+     # WAY SE IS GENERATED (e.g. for synthetic data ...)
+     # Generated SE may be: (1) random from the component (group) distro at hand; or
+     #                      (2) random from an 'overall' distro, where we express the 
+     #                      overall SE distribution as derived from a mixture of Beta distros.
+     #               
+     #                      ( or possibly from some central tendency with independent noise)
+     #
+     
+     #  ------------ 'reported' and generated-data SE -----------------------
+     if (SEgenMeth==1)  {  
+       # The SE beta distros here do include 'ballast' or 'activated schema'
+       # notional data :
+       a <- abnPol[trN+1,aInd[gpI],ptN] + aBal ; 
+       b <- abnPol[trN+1,bInd[gpI],ptN] + bBal ; 
+       # Now fill in expected and sampled SE !
+       abnPol[trN+1,expSEI,ptN] <- accP2SE(a/(a+b), A, B);  
+       abnPol[trN+1,genSEI,ptN] <- accP2SE(rbeta(1,a,b), A, B);  
+       
+     } else if (SEgenMeth==2) {  # 'reported' SE in genSE col. from an
+       #    overall beta ... 
+       a <- sum(abnPol[trN+1,aInd,ptN]) + aBal;
+       b <- sum(abnPol[trN+1,bInd,ptN]) + bBal;   
+       abnPol[trN+1,expSEI,ptN] <- accP2SE(a/(a+b), A,B);
+       # for debug:  abnPol[trN+1,genSEI,ptN] <- abnPol[trN+1,expSEI,ptN]; 
+       abnPol[trN+1,genSEI,ptN] <- accP2SE(rbeta(1,a,b), A,B);
+       
+     }  # end if-else about how to map beliefs to SE
+     # End generate SE values, expected and generated 'to report'. 
+     
+     #  Now for the probability density at the actually measured SE
+     #  in the experiment, if valid, using a and b calculated above:
+     SEdat = datAr[trN,4,ptN] ; 
+     if (is.na(SEdat)) {
+       abnPol[trN+1,SEPDI,ptN] <- NA ;
+     } else if (SEgenMeth==1) {
+       #  Expressed SE in terms of an acceptance probability :
+       experAccP <- SE2accP( SEdat,A,B); 
+       #  Acceptance belief density at that point acc. to the
+       #  belief density about the current group (rater):
+       accPdens <- dbeta( experAccP, a, b) ;
+       # To get SE density, scale by the slope of the accP(SE) map : 
+       abnPol[trN+1,SEPDI,ptN] <- accPdens * slopeSE2accP(SEdat,A,B,accPdens);
+     } else if (SEgenMeth==2) {
+       #  Acceptance belief density at that point acc. to 
+       #  'mean parameters' over all the groups:
+       accPdens <- dbeta( experAccP , a, b); 
+       # SE density scaled by the slope of the accP(SE) map : 
+       abnPol[trN+1,SEPDI,ptN] <- accPdens * slopeSE2accP(SEdat,A,B,accPdens);
+     }
+     # end if there was a valid SE measurement i.e. if VAS rating was obtained.
     
     } # end if there was a valid group i.e. a 'rater' was indeed presented.
     
@@ -260,7 +270,7 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
     SLPetc[[4]][,,] <- DatBelPol[2:(Ntrtot+1), c('gp','genPred','obs','genSE','nofb'),] ;
     colnames(SLPetc[[4]]) <- c('gp','pred','obs','SE','nofb'); # Just like real expt. data ...
     SLPetc[[5]] <- parMat;
-    colnames(SLPetc[[5]]) <- c('SEb','sensi','sesh','a0min','n0','nMax','Tresp','Bresp');
+    colnames(SLPetc[[5]]) <- c('accP0','sensi','sesh','a0min','n0','nMax','Tpred','Bpred');
     names(SLPetc) <-c('predSLnP','SESLnP','DatBelPol','genD','ptPar');
     
     return(SLPetc);
@@ -270,17 +280,53 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
 
 # -----------------------------------------------------------------------------
 
-# Param transf. for SLPsocio3, using 8-element input.
-# par. row must be: c('SEb', 'sensi','sesh', 'a0min', 'n0', 'nMax','Tresp', 'Bresp')
-# e.g.   parMat =   c(0.67,     2,     1.5,    2,       4,    6,     0.2,    0.1 )
-#  to  trPramat   ln parMat[ 1:3], ln(a0min-1), ln(n0-a0min-1), ln(nMax-n0), ln parMat[7:8]
+# Param transf. for SLPsocio3, using 9-element input.
+# par. row must be: c('accP0', 'sensi', 'sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal')
+# e.g.   parMat =   c(0.67,     0.75,     2,     0.5,      4,    6,     0.2,    0.1,    5 ) 
+#  to       atanh(2accP0-1),ln sensi,ln sesh,ln a0min,ln(n0-a0min),ln(nMax-n0),ln Tpred, Bpred,ln (nBal-1)
 #        sensitivity of pAcc->SE, threshold of pAcc->SE etc.
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-nat2trLP3 <- function(p,check=1){  
-  # p here is of form  :  c('SEb', 'sensi','sesh', 'a0min', 'n0', 'nMax','Tresp', 'Bresp')
-  # so  trp to be of form:
-  #  to  trPramat   ln parMat[ 1:3], ln(a0min-1), ln(n0-a0min-1), ln(nMax-n0-1), ln parMat[7:8]
+tr2natLP3 <- function(trp,check=1){  # from transformed, i.e. -inf to inf, to native space
+#  trp to be as follows;
+#      c('atanh(2accP0-1)', 'ln(sensi)','ln(sesh)', 'ln(a0min)', 'ln(n0-a0min-1)', 'ln(nMax-n0-2)','ln(Tpred)', 'Bpred', 'ln(nBal-1)') 
+#      Note in particular how we restrict n0 to above 1 and  nMax=Ntask > n0+2 > 1+2, as we want Ntask > 3 
+#      so the delta learning rule wil work as per  aDecay = (Ntask-3)/(Ntask-2) > 0 ..
+#  Returns: c('accP0', 'sensi','sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal')
+  
+  eps <- 1e-10;  #  eps is a tiny constant that can be used to guarantee
+                 #  that rounding errors, underflows etc. don't ruin strict inequalities.
+  
+  if (check){ if (is.null(dim(trp))){   # convert vec to mat if need be
+      trp <- matrix(trp,nrow=1,byrow=TRUE) }   }
+  ptTot <- dim(trp)[1]; 
+  p <- matrix(NA,nrow=ptTot,ncol=dim(trp)[2]); 
 
+  p[,4] <- exp(trp[,4]) ;           # a0min can go down to almost zero
+  p[,5] <- p[,4]+1 + exp(trp[,5]);  # n0 :  restrict to above 1 so that  nMax=Ntask > n0+2 > 1+2
+                                    # we want Ntask > 3 so the delta learning rule works as per
+				                            # aDecay = (Ntask-3)/(Ntask-2) > 0 ..
+  p[,6] <-  p[,5] + 2 +  exp(trp[,6]);  # as per rationale above.
+
+  p[,1] <- 0.5*(1 + tanh(trp[,1])) ; # accP0
+  p[,c(2,3,7)] <- exp(trp[,c(2,3,7)]);  #  'sensi','sesh', (a0min done already), 'Tpred' 
+  p[,8] <- trp[,8];
+  p[,9] <- exp(trp[,9]) + 1;  # nBal
+  
+      
+  if (check){ colnames(p) <- c('accP0', 'sensi','sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal') };
+  return(p); 
+}
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+nat2trLP3 <- function(p,check=1){  # From native to transformed.
+  #  Returns trp as follows;
+  #      c('atanh(2accP0-1)', 'ln(sensi)','ln(sesh)', 'ln(a0min)', 'ln(n0-a0min-1)', 'ln(nMax-n0-2)','ln(Tpred)', 'Bpred', 'ln(nBal-1)') 
+  #      Note in particular how we restrict n0 to above 1 and  nMax=Ntask > n0+2 > 1+2, as we want Ntask > 3 
+  #      so the delta learning rule wil work as per  aDecay = (Ntask-3)/(Ntask-2) > 0 ..
+  
+  
   eps   <- exp(-25);   # So that for R 1+eps > 1
   minLn <- -1000;   # so that for R exp(minLn) == 0, exp(-minLn) == +Inf
   
@@ -291,67 +337,47 @@ nat2trLP3 <- function(p,check=1){
   # Detailed check
   if (check > 1){
     for (ptN in 1:ptTot) {
-      if (sum(p[ptN,1:3] < -2*eps)) { 
-        print(paste('parMat 1:3 =',p[ptN,1:3]));
+      if (sum(p[ptN,c(2,3,4,7)] < -2*eps)) { 
+        print(paste('parMat 2,3,7 =',p[ptN,c(2,3,4,7)]));
         stop('--> ln of -ve    error' ); 
       }
-      if ((p[ptN,4]-1) < -2*eps) {
-        stop('ln(a0min-1) error' ); 
-      }
-      if ((p[ptN,5]-p[ptN,4]-1) < -2*eps) {
+       if ((p[ptN,5]-p[ptN,4]-1) < -2*eps) {
         stop('ln(n0-a0min-1) error' ); 
       }
-      if ((p[ptN,6]-p[ptN,5]-1) < -2*eps){
-        stop('ln(nMmax-n0) error : restrict to above 1 so that  nMax=Ntask > n0+1 > 2+1 and want Ntask > 3 so the delta learning rule works as per aDecay = (Ntask-3)/(Ntask-2) > 0 .')
+      if ((p[ptN,6]-p[ptN,5]-2) < -2*eps){
+        stop('ln(nMmax-n0-2) error : restrict so that  nMax=Ntask > n0+2 > 1+2 as want Ntask > 3 so the delta learning rule works as per aDecay = (Ntask-3)/(Ntask-2) > 0 .')
       }
+      if ((p[ptN,9]-1) < -2*eps) {
+        stop('ln(nBal-1) error' ); 
+      }
+      
     }
   }
   
   trp <- matrix(NA,nrow=ptTot,ncol=dim(p)[2]); 
    
-  y <- p[,4]-1;        y[y<eps] <- eps; 
-  trp[,4] <- log(y);            # ln(a0min-1)
+  y <- p[,4];        y[y<eps] <- eps; 
+  trp[,4] <- log(y);            # ln(a0min)
   y <- p[,5]-p[,4]-1;  y[y<eps] <- eps; 
   trp[,5] <- log(y);            # ln(n0-a0min-1)
-  y <- p[,6]-p[,5]-1  ;  y[y<eps] <- eps; 
-  trp[,6] <- log(y);            # ln(nMax-n0-1)
+  y <- p[,6]-p[,5]-2  ;  y[y<eps] <- eps; 
+  trp[,6] <- log(y);            # ln(nMax-n0-2)
+  y <- p[,9]-1;
+  trp[,9] <- log(y);            # ln(nBal-1)
+  
 
   # the others :
   trp[,1]  <- atanh(2*p[,1]-1);
-  y <- p[,c(2,3,7,8)];           y[y<eps] <- eps;   trp[,c(2,3,7,8)] <- log(y);
-  # bound under / overflows:
+  y <- p[,c(2,3,7)];           y[y<eps] <- eps;   trp[,c(2,3,7)] <- log(y);
+  trp[,8] <- p[,8];           # Bpred doesn't need to be transformed at all
+  # rough bounding of under / overflows:
   trp[trp < minLn] <- minLn;    trp[trp > -minLn] <- -minLn;
   
 
-  if (check){ colnames(trp)<- c('atanh(2SEb-1', 'ln(sensi)','ln(sesh)', 'ln(a0min-1)', 'ln(n0-a0min-1)', 'ln(nMax-n0-1)','ln(Tresp)', 'ln(Bresp)') }
+  if (check){ colnames(trp)<- c('atanh(2accP0-1)', 'ln(sensi)','ln(sesh)', 'ln(a0min)', 'ln(n0-a0min-1)', 'ln(nMax-n0-2)','ln(Tpred)', 'Bpred', 'ln(nBal-1)') }
   return(trp);
 
 }  # end of nat2trLP3
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-tr2natLP3 <- function(trp,check=1){
-#  trp is as follows;
-#      c('atanh(2SEb-1', 'ln(sensi)','ln(sesh)', 'ln(a0min-1)', 'ln(n0-a0min-1)', 'ln(nMax-n0-1)','ln(Tresp)', 'ln(Bresp)')
-#  Returns: c('SEb', 'sensi','sesh', 'a0min', 'n0', 'nMax','Tresp', 'Bresp')
-  
-  eps <- 1e-10;  #  eps is a tiny constant guaranteeing Nmax > n0+nBase as is needed.
-  
-  if (check){ if (is.null(dim(trp))){   # convert vec to mat if need be
-      trp <- matrix(trp,nrow=1,byrow=TRUE) }   }
-  ptTot <- dim(trp)[1]; 
-  p <- matrix(NA,nrow=ptTot,ncol=dim(trp)[2]); 
-
-  p[,4] <- exp(trp[,4]) + 1;        # a0min
-  p[,5] <- p[,4]+1 + exp(trp[,5]);  # n0 :  restrict to above 2 so that  nMax=Ntask > n0+1 > 2+1 and want Ntask > 3 so the delta learning rule works as per aDecay = (Ntask-3)/(Ntask-2) > 0 ..
-  p[,6] <-  p[,5] + 1 +  exp(trp[,5]);  # as per rationale above.
-
-  p[,1] <- 0.5*(1 + tanh(trp[,1])) ; # SEb
-  p[,c(2,3,7,8)] <- exp(trp[,c(2,3,7,8)]);  #  'sensi','sesh', 'Tresp', 'Bresp' 
-      
-  if (check){ colnames(p) <- c('SEb', 'sensi','sesh', 'a0min', 'n0', 'nMax','Tresp', 'Bresp') };
-  return(p); 
-}
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
