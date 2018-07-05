@@ -8,14 +8,14 @@
 # users of the main code, LikeMe.R etc.
 sewd <- getwd();       # find out where we are
 # Depending on what the path contains, decide who is the user. Student PLS EDIT YOUR ENTRY:
-if (grepl('C:/Users/Will',sewd)){ whoami <- 'Student'}
+if (grepl('Alexis',sewd)){ whoami <- 'Student'}
 if (grepl('/home/hopper',sewd)){whoami <- 'WillLinux'}
 if (grepl('C:/Users/mmoutou',sewd)){ whoami <- 'SpectreMM'}
 if (grepl('michael',sewd)){ whoami <- 'LinuxMM'}
 if (grepl('geert-jan',sewd)){ whoami <- 'GeertJanMac'}
 # Adjust the base directdory accoriding.  Student PLS EDIT YOUR ENTRY :
 switch(whoami,
-       Student  = {baseDir <- "C:/Users/student/SelfEvalModeling/"; },
+       Student  = {baseDir <- "X:/OneDrive - University College London/Summer Project - Alexis An Yee Low/"; },
        WillLinux = {baseDir <- "/home/hopper/Dropbox/SelfEvalMEV";},
        SpectreMM = {baseDir <- "C:/Users/mmoutou/OneDrive/SharePoint/Low, An Yee/Summer Project - Alexis An Yee Low/";},
        LinuxMM = {baseDir <- "/home/michael/gitwork/LikeMe/";},
@@ -31,7 +31,9 @@ source(paste(codeDir,'LikeMe.R',sep=''));
 
 # SLPsocio3 is the second, more advanced 'Inference by counting model' (Michael's model B)
 # To test it insides, run the first 45 lines of roughInferSE.R, incl. D <- D17 , then:
-# ptN=1; datAr=D; onlySLP=0; check=1; parMat =  c(0.67, 0.75, 2,  0.5,  4, 6, 0.2,   0.1,  5 ) 
+# ptN=1; datAr=D; onlySLP=0; check=1; parMat =  c(0.67, 0.75, 2,  0.5,  4, 6, 0.1,   0.1,  5 ) 
+# To re. approval predictions, try: test <- SLPsocio3(parMat,D); testD <- test$genD; l=matrix(NA,60,3); for (k in 1:60){ test <- SLPsocio3((0.7+0.01*k)*parMat,testD); l[k,] <- c((0.7+0.01*k),test$predSLnP, test$SESLnP); }; plot(l[,1],l[,2],t='l', main='appr. predictions SumLL'); abline(v=1); abline(h=(max(l[,2]-3)))
+
 SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
 # parMat has rows with the parameters for each pt.
 # datAr has a page for each pt, and Ntr rows., gp pred  obs SE cols.
@@ -145,9 +147,9 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
       
      } else { # if there was valid group i.e. valid 'rater' was presented
      # Prob. of 'accept' response emitted (this is BEFORE rating seen),
-     # if present. NB we will use beliefs after last trial, i.e. abnPol[trN,...
+     # if present. NB we will use beliefs after last trial, i.e. abnPol[trN,...(see notes if confused) 
      ratingP <- 1/(1+exp((1-2*(abnPol[trN,aInd[gpI],ptN]/abnPol[trN,nInd[gpI],ptN] +
-                                          Bpred))/Tpred));
+                                          Bpred))/Tpred)); 
      abnPol[trN+1,accPI,ptN] <- ratingP;  # Store                          
     
      predAcc <- datAr[trN,2,ptN]; # rating that actual participant predicted.
@@ -162,26 +164,20 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
      nSoFar <- abnPol[trN,nInd[gpI],ptN];
      nofb = datAr[trN,'nofb',ptN];  # 0 if feedback given, 1 otherwise, so if no
                                         # feedback given don't augment evidence index
-     if (!nofb) {  # If not feedback was given, we' leave all the a,b,n alone,
-                   # but !nofb means that feedback was given, so:
-       apprfb = (datAr[trN,3,ptN]+1)/2 ; # approval or not, i.e. convert from -1 1 to 0 1
-       if ((nSoFar+1) <= nMax){
-        abnPol[trN+1,nInd[gpI],ptN] <- abnPol[trN,nInd[gpI],ptN]+1;
-        # Adjust a, b according to the observation made:
-        abnPol[trN+1,aInd[gpI],ptN] <- abnPol[trN,aInd[gpI],ptN]+apprfb ;
-        # Just for completeness and checking:
-        abnPol[trN+1,bInd[gpI],ptN] <- abnPol[trN,bInd[gpI],ptN]+1-apprfb ;
-      
-       } else { # if nSoFar has max'ed to nMax :
-        abnPol[trN+1,nInd[gpI],ptN] <- abnPol[trN,nInd[gpI],ptN];
+     if (!nofb) {  # If not feedback was given, we' leave all the a,b,n alone, which 
+                   # are already in place. !nofb means that feedback was given, so:
+        apprfb = (datAr[trN,3,ptN]+1)/2 ; # approval or not, i.e. convert from -1 1 to 0 1
+
         # a only allowed to go to nMax-1, to allow b >= 1 :
-        abnPol[trN+1,aInd[gpI],ptN] <- 1+ datAr[trN,3,ptN] +
-                                       adecay*(abnPol[trN,aInd[gpI],ptN]-1) ;                
+        abnPol[trN+1,aInd[gpI],ptN] <- 1+ apprfb +
+                                       adecay*(abnPol[trN,aInd[gpI],ptN]-1) ;  
+        # Similar constraint on b gives condition for n : 
+        abnPol[trN+1,nInd[gpI],ptN] <- 3 + adecay*(nSoFar - 2);
+       
         # Again, just for completeness, b:
-        abnPol[trN+1,bInd[gpI],ptN] <- nMax - abnPol[trN+1,aInd[gpI],ptN];    
+        abnPol[trN+1,bInd[gpI],ptN] <- abnPol[trN+1,nInd[gpI],ptN] - abnPol[trN+1,aInd[gpI],ptN];
     
-       } # end if we have or haven't maxed out the trials to calc. over
-     }
+     } # end if valid feedback given
          
      # Consider SE as a map from prob. of acceptance to a scale over c(0,1)
      # & calc. p density at the new SE reported, if valid. IT HAS TO CORRESPOND TO THE
@@ -205,8 +201,8 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
        
      } else if (SEgenMeth==2) {  # 'reported' SE in genSE col. from an
        #    overall beta ... 
-       a <- sum(abnPol[trN+1,aInd,ptN]) + aBal;
-       b <- sum(abnPol[trN+1,bInd,ptN]) + bBal;   
+       a <- mean(abnPol[trN+1,aInd,ptN]) + aBal;
+       b <- mean(abnPol[trN+1,bInd,ptN]) + bBal;   
        abnPol[trN+1,expSEI,ptN] <- accP2SE(a/(a+b), A,B);
        # for debug:  abnPol[trN+1,genSEI,ptN] <- abnPol[trN+1,expSEI,ptN]; 
        abnPol[trN+1,genSEI,ptN] <- accP2SE(rbeta(1,a,b), A,B);
@@ -228,6 +224,8 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
        # To get SE density, scale by the slope of the accP(SE) map : 
        abnPol[trN+1,SEPDI,ptN] <- accPdens * slopeSE2accP(SEdat,A,B,accPdens);
      } else if (SEgenMeth==2) {
+       #  Expressed SE in terms of an acceptance probability :
+       experAccP <- SE2accP( SEdat,A,B); 
        #  Acceptance belief density at that point acc. to 
        #  'mean parameters' over all the groups:
        accPdens <- dbeta( experAccP , a, b); 
@@ -270,7 +268,7 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
     SLPetc[[4]][,,] <- DatBelPol[2:(Ntrtot+1), c('gp','genPred','obs','genSE','nofb'),] ;
     colnames(SLPetc[[4]]) <- c('gp','pred','obs','SE','nofb'); # Just like real expt. data ...
     SLPetc[[5]] <- parMat;
-    colnames(SLPetc[[5]]) <- c('accP0','sensi','sesh','a0min','n0','nMax','Tpred','Bpred');
+    colnames(SLPetc[[5]]) <- c('accP0','sensi','sesh','a0min','n0','nMax','Tpred','Bpred','nBal');
     names(SLPetc) <-c('predSLnP','SESLnP','DatBelPol','genD','ptPar');
     
     return(SLPetc);
