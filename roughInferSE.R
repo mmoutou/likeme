@@ -11,26 +11,26 @@ remove(list=ls());     # clear the decks (UNLIKE LikeMe.R)
 # users of the main code, LikeMe.R etc.
 sewd <- getwd();       # find out where we are
 # Depending on what the path contains, decide who is the user. Student PLS EDIT YOUR ENTRY:
-if (grepl('C:/Users/Will',sewd)){ whoami <- 'Student'}
+if (grepl('Alexis',sewd)){ whoami <- 'Student'}
 if (grepl('/home/hopper',sewd)){whoami <- 'WillLinux'}
 if (grepl('C:/Users/mmoutou',sewd)){ whoami <- 'SpectreMM'}
 if (grepl('michael',sewd)){ whoami <- 'LinuxMM'}
 if (grepl('geert-jan',sewd)){ whoami <- 'GeertJanMac'}
 # Adjust the base directdory accoriding.  Student PLS EDIT YOUR ENTRY :
 switch(whoami,
-       Student  = {baseDir <- "C:/Users/student/SelfEvalModeling/"; },
+       Student  = {baseDir <- "X:/OneDrive - University College London/Summer Project - Alexis An Yee Low/"; },
        WillLinux = {baseDir <- "/home/hopper/Dropbox/SelfEvalMEV";},
        SpectreMM = {baseDir <- "C:/Users/mmoutou/OneDrive/SharePoint/Low, An Yee/Summer Project - Alexis An Yee Low/";},
        LinuxMM = {baseDir <- "/home/michael/gitwork/LikeMe/";},
        GeertJanMac= {baseDir <- "/Users/geert-janwill/Dropbox/GJW_LikeMe/"; })
 
-codeDir <- paste(baseDir,"Rscripts/",sep='')
+codeDir <- paste(baseDir,"likeme-Socio3/",sep='')
 # ----------------- Load data and key functions  --------------------
 
 setwd(baseDir)
 load('GJW03.RData');
 # sourcing & libraries:
-try(source(paste(baseDir,'/Rscripts/LikeMe.R',sep='')));
+try(source(paste(codeDir,'LikeMe.R',sep='')));
 library(ppcor);
 
 # ---- Student summer project - please familiarise yourself from this point ----
