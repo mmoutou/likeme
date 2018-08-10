@@ -378,7 +378,7 @@ nat2trLP3 <- function(p,check=1){  # From native to transformed.
 
 }  # end of nat2trLP3
 
-msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){ #A: currently working on editing this function
+msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
   # trParM: transf. directly by tr2natLP1  
   #   c('tr(SEb,SEmin)','tr(aB OR bB)','ln(a0min-1)',
   #                               'ln(n0-a0min-1)','tr(Nmax etc)','ln(Tresp)')
@@ -396,9 +396,11 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){ #A: currently working on
   
   parM <- matrix(NA,nrow=dim(trParM)[1],ncol=dim(trParM)[2]+1); 
   
-  # fill in:  accP0 sensi sesh a0min n0 nMax Tpred Bpred nBal
-  parM <- tr2natLP3(trParM); 
-  #parM[1,'sensi'] = 4 #A: approach I tried initially - is wrong
+  #A: If using this function in a situation where 1 or more parameters 
+  #are fixed, add this line. Change as necessary. For how nlm was done 
+  #with fixed parameters, see end of file
+  #trParM <- cbind( trParM[,1], 0, trParM[,2], trParM[,3], trParM[,4], trParM[,5], trParM[,6], trParM[,7], trParM[,8])
+  parM <- tr2natLP3(trParM)
   
   # Cacl. the log prior for MAP purposes etc:
   mSLPrior <- 0;
@@ -419,7 +421,24 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){ #A: currently working on
     return ( mSLPrior - SLPsocio3( parM, datAr, onlySLP=1, check) ); #A: this is what is minimized - the difference between priors and actual (as gone through SLPsocio1)
   }
   
-} # end of msLP3tr 
+}  # end of msLP3tr 
+
+#A: How to do nlm with fixed parameter(s)
+
+# parMat = c(0.67, 1, 1, 0.5, 4, 6, 0.2, 0.1, 5)
+# slp3.17 <- SLPsocio3(parMat,D)
+# simD <- slp3.17$genD; 
+# simSLP3 <- SLPsocio3(parMat,simD);
+# cat('    predSLnP           SESLnP\n',paste(c(simSLP3[[1]],simSLP3[[2]]))) 
+# #skipping the 1.2x stuff for now
+# p3tr <- nat2trLP3(parMat)
+# p3tr <- p3tr[,-2] #if fixing parameter 2
+# p3tr <- matrix(p3tr,nrow=1,byrow=TRUE)
+# simFit <- nlm(msLP3tr, p3tr, simD, print.level=2, iterlim=100);
+# simFit$estimate <- c(simFit$estimate[1], log(parMat[2]), simFit$estimate[2:8]) #if fixing parameter 2
+# estp <- (tr2natLP3(simFit$estimate)) ; 
+# print( round(estp,3) ); #A: although this says estp, 'correct' parameters for the fixed parameter value(s) have been 'slotted' back in
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                                          end of file
