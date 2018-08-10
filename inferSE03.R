@@ -378,7 +378,7 @@ nat2trLP3 <- function(p,check=1){  # From native to transformed.
 
 }  # end of nat2trLP3
 
-msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
+msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){ #A: currently working on editing this function
   # trParM: transf. directly by tr2natLP1  
   #   c('tr(SEb,SEmin)','tr(aB OR bB)','ln(a0min-1)',
   #                               'ln(n0-a0min-1)','tr(Nmax etc)','ln(Tresp)')
@@ -398,7 +398,6 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
   
   # fill in:  accP0 sensi sesh a0min n0 nMax Tpred Bpred nBal
   parM <- tr2natLP3(trParM); 
-  #parM[ptN,'sensi'] = 4
   
   # Cacl. the log prior for MAP purposes etc:
   mSLPrior <- 0;
