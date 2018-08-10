@@ -436,6 +436,7 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
 # p3tr <- matrix(p3tr,nrow=1,byrow=TRUE)
 # p3tr <- p3tr[,-3]
 # p3tr <- matrix(p3tr,nrow=1,byrow=TRUE)
+# p3tr <- 1.2*p3tr
 # simFit <- nlm(msLP3tr, p3tr, simD, print.level=2, iterlim=100);
 # simFit$estimate <- c(simFit$estimate[1], log(parMat[2]), log(parMat[3]), simFit$estimate[2:7]) #if fixing parameter 2
 # estp <- (tr2natLP3(simFit$estimate)) ; 
