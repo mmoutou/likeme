@@ -398,6 +398,7 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){ #A: currently working on
   
   # fill in:  accP0 sensi sesh a0min n0 nMax Tpred Bpred nBal
   parM <- tr2natLP3(trParM); 
+  #parM[1,'sensi'] = 4 #A: approach I tried initially - is wrong
   
   # Cacl. the log prior for MAP purposes etc:
   mSLPrior <- 0;
