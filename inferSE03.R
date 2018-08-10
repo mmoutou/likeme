@@ -397,9 +397,9 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
   parM <- matrix(NA,nrow=dim(trParM)[1],ncol=dim(trParM)[2]+1); 
   
   #A: If using this function in a situation where 1 or more parameters 
-  #are fixed, add this line. Change as necessary. For how nlm was done 
+  #are fixed, add this line (402). Change as necessary. For how nlm was done 
   #with fixed parameters, see end of file
-  #trParM <- cbind( trParM[,1], 0, trParM[,2], trParM[,3], trParM[,4], trParM[,5], trParM[,6], trParM[,7], trParM[,8])
+  #trParM <- cbind( trParM[,1], log(5), log(2), trParM[,2], trParM[,3], trParM[,4], trParM[,5], trParM[,6], trParM[,7])
   parM <- tr2natLP3(trParM)
   
   # Cacl. the log prior for MAP purposes etc:
@@ -425,20 +425,21 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
 
 #A: How to do nlm with fixed parameter(s)
 
-# parMat = c(0.67, 1, 1, 0.5, 4, 6, 0.2, 0.1, 5)
+# parMat = c(0.5, 5, 2, 0.5, 4, 6, 0.2, 0.1, 10)
 # slp3.17 <- SLPsocio3(parMat,D)
 # simD <- slp3.17$genD; 
 # simSLP3 <- SLPsocio3(parMat,simD);
 # cat('    predSLnP           SESLnP\n',paste(c(simSLP3[[1]],simSLP3[[2]]))) 
 # #skipping the 1.2x stuff for now
 # p3tr <- nat2trLP3(parMat)
-# p3tr <- p3tr[,-2] #if fixing parameter 2
+# p3tr <- p3tr[,-2]
+# p3tr <- matrix(p3tr,nrow=1,byrow=TRUE)
+# p3tr <- p3tr[,-3]
 # p3tr <- matrix(p3tr,nrow=1,byrow=TRUE)
 # simFit <- nlm(msLP3tr, p3tr, simD, print.level=2, iterlim=100);
-# simFit$estimate <- c(simFit$estimate[1], log(parMat[2]), simFit$estimate[2:8]) #if fixing parameter 2
+# simFit$estimate <- c(simFit$estimate[1], log(parMat[2]), log(parMat[3]), simFit$estimate[2:7]) #if fixing parameter 2
 # estp <- (tr2natLP3(simFit$estimate)) ; 
 # print( round(estp,3) ); #A: although this says estp, 'correct' parameters for the fixed parameter value(s) have been 'slotted' back in
-
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                                          end of file
