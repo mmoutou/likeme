@@ -233,8 +233,8 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
        #  Acceptance belief density at that point acc. to 
        #  'mean parameters' over all the groups:
        accPdens <- dbeta( experAccP , a, b); #A: this one calculates p density at x = experAccP in the beta function
-       # SE density scaled by the slope of the accP(SE) map : 
-       abnPol[trN+1,SEPDI,ptN] <- accPdens * slopeSE2accP(SEdat,A,B,accPdens); #A: probability density * ... don't entirely understand this but some scaling
+       # SE density scaled by the slope of the accP(SE) map :
+       abnPol[trN+1,SEPDI,ptN] <- accPdens * slopeSE2accP(SEdat,A,B,experAccP); #A: probability density * ... don't entirely understand this but some scaling
      }
      # end if there was a valid SE measurement i.e. if VAS rating was obtained.
     
