@@ -24,9 +24,9 @@ switch(whoami,
        Student  = {baseDir <- "X:/OneDrive - University College London/Summer Project - Alexis An Yee Low/";
                    dataDir <- "X:/OneDrive - University College London/Summer Project - Alexis An Yee Low/";},
        WillLinux = {baseDir <- "/home/hopper/Dropbox/SelfEvalMEV";},
-       SpectreMM = {baseDir <- "C:/Users/mmoutou/OneDrive/SharePoint/Low, An Yee/Summer Project - Alexis An Yee Low/";
-                    dataDir <- "C:/Users/mmoutou/sci/CogEmoPsych_local/AYLarchive/"},
-       SpectreVM = {baseDir <- "/media/michael/C_mmoutou/OneDrive/SharePoint/Low, An Yee/Summer Project - Alexis An Yee Low/";
+       SpectreMM = {baseDir <- "C:/Users/mmoutou/OneDrive - University College London/SharePoint/Low, An Yee/Summer Project - Alexis An Yee Low/";
+       dataDir <- "C:/Users/mmoutou/sci/CogEmoPsych_local/AYLarchive/"},
+       SpectreVM = {baseDir <- "/media/michael/C_mmoutou/OneDrive - University College London/SharePoint/Low, An Yee/Summer Project - Alexis An Yee Low/";
        dataDir <- "/media/michael/C_mmoutou/sci/CogEmoPsych_local/AYLarchive/"},
        LinuxMM = {baseDir <- "/home/michael/gitwork/LikeMe/";},
        GeertJanMac= {baseDir <- "/Users/geert-janwill/Dropbox/GJW_LikeMe/"; })
@@ -40,6 +40,7 @@ setwd(baseDir)
 load(paste(dataDir,'GJW03.RData',sep=''));
 # sourcing & libraries:
 try(source(paste(codeDir,'LikeMe.R',sep='')));
+try(source(paste(codeDir,'inferSE03.R',sep='')));
 library(ppcor);
 
 # ---- Student summer project - please familiarise yourself from this point ----
@@ -238,10 +239,20 @@ print(paste('Popularity model mean explained variance:',expv));
 
 # Start again with just participant 17
 D <- D17;
-#         c('SEb', 'sensi','sesh',  'a0min',   'n0', 'nMax','Tresp', 'Bresp') };
-par3a <-  c(0.67,   1.5,     1,      1.5,       4,     6,     0.15,    0.5 );
-slp3.17 <- SLPsocio3(par3a,D);
-plot(slp3.17[[3]][,'expSE',1],t='b',ylim=c(0,1));  lines(slp3.17[[3]][,'genSE',1],t='l',col='pink3');
+#         c('accP0', 'sensi', 'sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal')
+par3a  =  c(0.5,     1,       1,      0.5,     5,   10,    0.15,    0.0,    5 ); 
+u=6; test <- SLPsocio3(par3a,D); simD <- test$genD; 
+
+
+l=matrix(NA,60,3); parm=par3a; 
+for (k in 1:60){parm[u]=(0.7+0.01*k)*par3a[u]; test <- SLPsocio3(parm,simD); 
+l[k,] <- c((0.7+0.01*k),test$predSLnP, test$SESLnP); }; 
+plot(l[,1],l[,3],t='l', main='appr. sum log SLDSE',xlab=paste(colnames(test$ptPar)[u],'multiplier')); abline(v=1); 
+
+
+slp3.17 <- SLPsocio3(par3a,simD); 
+mainti = 'Simulated data - pink: genSE; black: expSE'
+plot(slp3.17[[3]][,'expSE',1],t='b',ylim=c(0,1));  lines(slp3.17[[3]][,'genSE',1],t='l',col='pink3',main=mainti);
 simD <- slp3.17$genD;   
 
 # If desired, replace SEs with NAs to have it a la Robb:
@@ -254,37 +265,19 @@ cat('    predSLnP           SESLnP\n',paste(c(sim3a[[1]],sim3a[[2]])))
 p3a <- par3a;
 p3aTr <- nat2trLP3(p3a);
 p3bTr <- p3aTr;
-parErr <- rep(0.1,8);
+parErr <- rep(0.1,length(p3a));
 # p3bTr <- p3bTr + parErr;
 v=2; p3bTr[v] <- p3bTr[v] + parErr[v];
 par3b   <- tr2natLP3(p3bTr); 
 sim3b <- SLPsocio3(par3b,simD);
 cat('    predSLnP           SESLnP\n',paste(c(sim3b[[1]],sim3b[[2]])))
-# simple param vs. log lik to check ... doesn't work as yet ... :-( 
-pn=2; 
-lp<-matrix(NA,51,2); 
-for (i in (-25:25)){
-  parErr=0.025*i; 
-  p3bTr=p3aTr; 
-  p3bTr[pn]=p3bTr[pn]+parErr; 
-  par3b=tr2natLP3(p3bTr); 
-  print(as.vector(par3b));
-  sim3b=SLPsocio3(par3b,simD); 
-  lp[26+i,1]=sim3b[[1]]; 
-  lp[26+i,2]=sim3b[[2]];
-  #if ((parErr > 0.2) && (parErr < 0.35)){ print(c(par3b,lp[11+i,2])) }
-};
-plot( (-25:25)*0.025, lp[,2],t='b',col='blue3',main=colnames(p3bTr)[pn]); 
-lines((-25:25)*0.025, lp[,1]+lp[,2],t='b',lwd=3); abline(0,10^9)
 
-# attempt a fit without priors:
-p0tr <- nat2trLP0(p0bTr)
-fit0.17 <- nlm(msLP0tr, p0tr, D, print.level=2, iterlim=500); 
-# This produces approx. 
+# attempt to fit real data without priors:
+fit0.17 <- nlm(msLP3tr, p3aTr, simD, print.level=2, iterlim=500); 
 # check it
-p0na <- tr2natLP0(fit0.17$estimate);         # short form
-p0nat <- c(p0na[1],NA,NA,NA,p0na[2:6])          # long form
-slp0.17 <- SLPsocio0(p0nat,D,0, gpAcc);
+p0na <- tr2natLP3(fit0.17$estimate);         # short form
+# p0nat <- c(p0na[1],NA,NA,NA,p0na[2:6])          # long form
+slp0.17 <- SLPsocio3(p0na,simD,0);
 plot(slp0.17[[3]][,'expSE',1],t='l',col='darkseagreen4',ylim=c(0,1));  
 lines(slp0.17[[3]][,'genSE',1],t='l',col='darkseagreen3');
 lines(slp0.17[[3]][,'SE',1],t='p',col='black')
@@ -301,37 +294,112 @@ plot(slp0.17[[3]][,'vt',1],t='l',col='blue');
 lines(slp0.17[[3]][,'genSE',1],t='l',col='pink3');
 lines(slp0.17[[3]][,'SE',1],t='p',col='black')
 
-# -------- Debugging SLPsocio3 -------------
-# Inference by counting model incorp. response function:
-# a little bit of progress on debugging - changed SLPsocio3 to provide synthetic
-# data based on means. Now the following produces reproducible error:
+# try fitting real data without prior:
+fit1.17 <- nlm(msLP3tr, p3aTr, D, print.level=2, iterlim=500); 
+p1na <- tr2natLP3(fit1.17$estimate); 
 
-D <- D17;
-#         c('SEb', 'sensi','sesh',  'a0min',   'n0', 'nMax','Tresp', 'Bresp') };
-par3a <-  c(0.67,   1.5,     1,      1.5,       4,     6,     0.15,    0.5 );
-slp3.17 <- SLPsocio3(par3a,D);
-plot(slp3.17[[3]][,'expSE',1],t='b',ylim=c(0,1));  lines(slp3.17[[3]][,'genSE',1],t='l',col='pink3');
-simD <- slp3.17$genD;   
+# Try with prior
+Par0 <- matrix(c(0.5,0.285,2,1.5,2,1.5,1,0.99,11,10,11,10,11,10,0,10,11,10),nrow=2)
+fit2.17 <- nlm(msLP3tr, p3aTr, D17, Par0, print.level=2, iterlim=500); 
+# check it
+p2na <- tr2natLP3(fit2.17$estimate);               # short form
+print(p2na);
+slp2.17 <- SLPsocio3(p2na,D);
+co = pcor(na.omit(slp2.17[[3]][,c('SE','expSE'),1]))
+mainti = paste('Weakly inf. priors; pearson r=',round(co$est[2,1],3),' p=',round(co$p.val[2,1],5))
+plot(slp2.17[[3]][,'expSE',1],t='l',col='blue',main=mainti);  
+lines(slp2.17[[3]][,'genSE',1],t='l',col='pink3');
+lines(slp2.17[[3]][,'SE',1],t='p',col='black')
 
-# If desired, replace SEs with NAs to have it a la Robb:
-v <- D[,'SE',]; v <- 1+v; v<- v/v;  # create vector of 1's and NA's
-#simD[,'SE',] <- v*simD[,'SE',];
+# -------- Using SLPsocio3 -------------
+mapfi03 <- list();   # will hold 'counting model' ('1') fits
+parNames = c('accP0', 'sensi', 'sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal');
+totParN = length(parNames);
+mapres <- matrix(NA,nrow=dim(datArW03)[3],ncol=(totParN+4));
+dimnames(mapres)[[2]] <- c(parNames,c('predSLL','SESLD','totSLP','rcor'));
+# Here may load('socio3fit00.RData'); # init. cond. to be infromed by a half-decent fit when available.
 
-sim3a <- SLPsocio3(par3a,simD); 
-cat('    predSLnP           SESLnP\n',paste(c(sim3a[[1]],sim3a[[2]])))
-# Now for a  wrong one. p in form 'SEb', 'sensi','sesh', 'a0min', 'n0', 'nMax','Tresp', 'Bresp'
-p3a <- par3a;
-p3aTr <- nat2trLP3(p3a);
-p3bTr <- p3aTr;
-parErr <- rep(0.1,8);
-# p3bTr <- p3bTr + parErr;
-v=2; p3bTr[v] <- p3bTr[v] + parErr[v];
-par3b   <- tr2natLP3(p3bTr); 
-sim3b <- SLPsocio3(par3b,simD);
-cat('    predSLnP           SESLnP\n',paste(c(sim3b[[1]],sim3b[[2]])))
-# simple param vs. log lik to check ... doesn't work as yet ... :-( 
+# first initialization by hand.
+tryP =                    c(0.8,     1,         1,     0.1,    10,    15,    0.2,    0.0,     20)
+iniLen=length(tryP); 
+# Handmade Prior is weakly informative (but more strongly so for response function:)
+Par0 <- matrix(c(0.5,0.285,2,1.5,2,1.5,1,0.99,11,10,11,10,11,10,0,10,11,10),nrow=2)
 
-plot( sim3a[[3]][,'SEPD',1], sim3b[[3]][,'SEPD',1]); abline(0,1)
+for (ptN in 1:dim(datArW03)[3]){    # c(4,7,11)){ #1:dim(datArW03)[3] ){
+  mapfi03[[ptN]] = list();  mapfi03[[ptN]][[1]] = list();
+  
+  D <- array(NA,c(dim(datArW03)[1:2],1));  # Create & clear the working array
+  D[,,1] <- datArW03[,,ptN];
+  dimnames(D)[[2]] <- c('gp','pred','obs','SE','nofb');
+  dimnames(D)[[3]] <- ptN;
+  
+  mapfi03[[ptN]] <- list();
+  mPD <- Inf;
+  for (attempt in 1:20){  # 2-10 for testing; try (10*iniLen) for real {
+    
+    if (attempt == 1){
+      iniTrPar <- nat2trLP3(tryP);
+    } else {
+      iniTrPar <- nat2trLP3(tryP) * runif(totParN,0.5,1.5); 
+    }
+    # atI <- attempt %% iniLen; if (atI == 0){atI <- iniLen;};
+    #if (attempt > 11) {
+    #    iniTrPar <- as.numeric(iniTrParM[atI,] * runif(6,0.8,1.2));
+    #}
+    
+    print(paste('ptN:',ptN,';  SLPsocio3 fit attempt:', attempt));  
+    print(paste('Init. Cond:', paste(round(tr2natLP3(iniTrPar),4),collapse=',')));
+    try( fitAttempt <- nlm(msLP3tr, iniTrPar, D, Par0, print.level=1, iterlim=500) ); # Par0, print.level=2, iterlim=500) );
+    if (vecTRUE(length(fitAttempt$estimate)>1)){
+      if ( vecTRUE(fitAttempt$minimum < mPD) || !(vecTRUE(length(mapfi03[[ptN]][[1]])>1)) ){
+        mPD <- fitAttempt$minimum;
+        mapfi03[[ptN]][[1]] <- fitAttempt;
+      }
+    }
+  }  # End exploration of initial conditions
+  
+  est9p <- (tr2natLP3(mapfi03[[ptN]][[1]]$estimate)) ; 
+  mapfi03[[ptN]][[2]] <- SLPsocio3(est9p, D);
+  
+  
+  names(mapfi03[[ptN]]) <- c('NLM','SLP')
+  
+  # output array storage
+  mapres[ptN,1:totParN] <- tr2natLP3(mapfi03[[ptN]][[1]]$estimate);
+  mapres[ptN,(totParN+1)]   <- mapfi03[[ptN]][[2]][[1]]; 
+  mapres[ptN,(totParN+2)]   <- mapfi03[[ptN]][[2]][[2]]; 
+  mapres[ptN,(totParN+3)]   <- -mapfi03[[ptN]][[1]]$minimum;  
+  
+  # Prepare for graphs with real & randomly generated data for visual inspection:
+  v <- D[,'SE',1]; v <- 1+v; v<- v/v;  # create vector of 1's and NA's
+  expSE <- mapfi03[[ptN]][[2]][[3]][,'expSE',1]*c(NA,v);  expSE <- expSE[-1];
+  
+  # a coarse analysis to see how much pts. SE responed to positive
+  # feedback etc:
+  d <- mapfi03[[ptN]][[2]][[3]][,,1] ;  d <- na.omit(TDSE(d));
+  c <- round(cor(d[,c('sPE','TDSE')])[1,2],2);
+  plot(na.omit(d[,c('sPE','TDSE')]), main=paste('pt',ptN,'  cor=',c)); 
+  c <- round(cor(d[,c('sAp','TDSE')])[1,2],2);
+  plot(na.omit(d[,c('sAp','TDSE')]), main=paste('pt',ptN,'  cor=',c)); 
+  
+  # Plotting of expected, measured and generated SE : 
+  c <- round(cor(na.omit(data.frame(D[,'SE',1], expSE)))[1,2],2)
+  mapres[ptN,(totParN+4)]   <- cor(na.omit(data.frame(D[,'SE',1], expSE)))[1,2];  
+  d2plot <- (mapfi03[[ptN]][[2]][[3]][,c('SE','expSE','genSE'),1])
+  plot(d2plot[,'SE'],t='p',col='green4',pch=19,lwd=5,
+       main=paste('MAP fit, counting model (SLPsocio3):   pt',ptN,';  cor=',c,'\n[green: measured;   cyan:fit (expect.),  pink: generated from fit]'),
+       xlab='trial number',
+       ylab='Self Evaluation'); 
+  lines(d2plot[,'expSE'],t='l',col='cyan3',lwd=3);
+  lines(d2plot[,'genSE'],t='l',col='pink3');
+  
+  print(mapres[1:ptN,])
+  save.image(paste(baseDir,"socio3fit02.RData",sep=''))
+  exportCSV(paste(baseDir,'socio3fit02.csv',sep=''),mapres)
+  
+}
+
+
 
 #  ---- ~~~~~~~~~~~~~~~~~~~~~ ----
 #            end of file
