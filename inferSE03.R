@@ -56,7 +56,7 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
   if (length(datDim)<3){   # if 2D object was provided, convert to 3D. #A: matrix to array I think
     hd <- colnames(datAr);
     datAr <- array(as.matrix(datAr),c(datDim,1));
-    colnames(datAr) <- hd; #A: hd is header?
+    colnames(datAr) <- hd; #A: hd is header -this is in order to keep the same header after turned into matrix
    }
   if (is.null(dim(parMat))) {
     parMat <- array(parMat,c(1,length(parMat)));
@@ -409,7 +409,7 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
   mSLPrior <- 0;
   if (length(gamPri)>1){  # legit prior must have 12 elements or so!
     for (ptN in 1:dim(trParM)[1]) {
-      mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,], gamPri[1,],gamPri[2,], log=TRUE)); 
+      mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,], gamPri[1,],gamPri[2,], log=TRUE)); #A: lower = better
     }
   } 
   
@@ -421,7 +421,7 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
     # do not attempt to calculated the likelihood - it will be nonsense anyway.
     return(Inf); 
   } else {
-    return ( mSLPrior - SLPsocio3( parM, datAr, onlySLP=1, check) ); #A: this is what is minimized - the difference between priors and actual (as gone through SLPsocio1)
+    return ( mSLPrior - SLPsocio3( parM, datAr, onlySLP=1, check) ); #A: this is what is minimized - the difference between priors and actual (as gone through SLPsocio1) #To change to only SESLnP or only predSLnP, use eg. SLPsocio3(parM, datAr, onlySLP=0, check)$SESLnP
   }
   
 }  # end of msLP3tr 
@@ -437,7 +437,7 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
 # p3tr <- nat2trLP3(parMat)
 # p3tr <- p3tr[,-2]
 # p3tr <- matrix(p3tr,nrow=1,byrow=TRUE)
-# p3tr <- p3tr[,-3]
+# p3tr <- p3tr[,-2] #A: take note!!! positions will change
 # p3tr <- matrix(p3tr,nrow=1,byrow=TRUE)
 # p3tr <- 1.2*p3tr
 # simFit <- nlm(msLP3tr, p3tr, simD, print.level=2, iterlim=100);
