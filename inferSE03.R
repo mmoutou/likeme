@@ -19,7 +19,7 @@ if (grepl('C_mmoutou',sewd)){ whoami <- 'SpectreVM'}
 switch(whoami,
        Student  = {baseDir <- "X:/OneDrive - University College London/Summer Project - Alexis An Yee Low/"; },
        WillLinux = {baseDir <- "/home/hopper/Dropbox/SelfEvalMEV";},
-       SpectreMM = {baseDir <- "C:/Users/mmoutou/OneDrive/SharePoint/Low, An Yee/Summer Project - Alexis An Yee Low/";},
+       SpectreMM = {baseDir <- "C:/Users/mmoutou/OneDrive - University College London/SharePoint/Low, An Yee/Summer Project - Alexis An Yee Low/";},
        SpectreVM = {baseDir <- "/media/michael/C_mmoutou/OneDrive/SharePoint/Low, An Yee/Summer Project - Alexis An Yee Low/";},
        LinuxMM = {baseDir <- "/home/michael/gitwork/LikeMe/";},
        GeertJanMac= {baseDir <- "/Users/geert-janwill/Dropbox/GJW_LikeMe/"; })
@@ -38,6 +38,7 @@ source(paste(codeDir,'LikeMe.R',sep=''));
 # ptN=1; datAr=D; onlySLP=0; check=1; parMat =  c(0.67, 1.5, 1.25,  1.1,  4,  8,   0.15,  0.2,  5 ) 
 # To re. approval predictions, try: test <- SLPsocio3(parMat,D); testD <- test$genD; l=matrix(NA,60,3); for (k in 1:60){ test <- SLPsocio3((0.7+0.01*k)*parMat,testD); l[k,] <- c((0.7+0.01*k),test$predSLnP, test$SESLnP); }; plot(l[,1],l[,2],t='l', main='appr. predictions SumLL'); abline(v=1); abline(h=(max(l[,2]-3)))
 #A: l is a matrix created w parameters (no data, 60 rows, 3 columns). then for 1 to 60 put in the output of SLPSocio3 when applied to testD using different multiples of parameter, from 0.7 to 1.3. to see which is the parameter that gives these results as most likely. (ideally 1). y axis is 1, x axis is peak minus 3 (to show 95% CI?)
+# Another similar test, to test params one by one by changing u from 1 to 9:parMat =  c(0.67, 1.5, 1.25,  1.1,  4,  8,   0.15,  0.2,  5 ); u=6; test <- SLPsocio3(parMat,D); testD <- test$genD; l=matrix(NA,60,3); parm=parMat; for (k in 1:60){parm[u]=(0.7+0.01*k)*parMat[u]; test <- SLPsocio3(parm,testD); l[k,] <- c((0.7+0.01*k),test$predSLnP, test$SESLnP); }; plot(l[,1],l[,3],t='l', main='appr. sum log SLDSE',xlab=paste(colnames(test$ptPar)[u],'multiplier')); abline(v=1); 
 SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
 # parMat has rows with the parameters for each pt.
 # datAr has a page for each pt, and Ntr rows., gp pred  obs SE cols.
@@ -226,7 +227,7 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
        #  belief density about the current group (rater):
        accPdens <- dbeta( experAccP, a, b) ;
        # To get SE density, scale by the slope of the accP(SE) map : 
-       abnPol[trN+1,SEPDI,ptN] <- accPdens * slopeSE2accP(SEdat,A,B,accPdens);
+       abnPol[trN+1,SEPDI,ptN] <- accPdens * slopeSE2accP(SEdat,A,B) # ,accPdens);
      } else if (SEgenMeth==2) {
        #  Expressed SE in terms of an acceptance probability :
        experAccP <- SE2accP( SEdat,A,B); #A: this function converts experimental SE to experimental AccP
@@ -259,8 +260,8 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
     colN <- dim(abnPol)[2]+6;
     DatBelPol <- array(NA,c(Ntrtot+1,colN,Nptot));
     dimnames(DatBelPol)[[2]] <- c(colnames(datAr), colnames(abnPol), 'genPred')
-    DatBelPol[2:(Ntrtot+1),1:5,] <- datAr;
-    DatBelPol[,(5+1):(5+dim(abnPol)[2]),] <- abnPol;
+    DatBelPol[2:(Ntrtot+1),1:5,] <- datAr[1:Ntrtot,,];
+    DatBelPol[,(5+1):(5+dim(abnPol)[2]),] <- abnPol[1:dim(DatBelPol)[1],,];
     for (ptN in 1:Nptot) {
       for (trN in 1:Ntrtot) {
           DatBelPol[trN+1,'genPred',ptN] <- rbinom(1,1,DatBelPol[trN+1,'accP',ptN]);
@@ -269,7 +270,7 @@ SLPsocio3 <- function( parMat, datAr,onlySLP=0, check=1){
     SLPetc[[3]] <- DatBelPol;
     # 4th element to have generated data only :
     SLPetc[[4]] <- NA*datAr;  # shortest scripting to preserve dimentionality ...
-    SLPetc[[4]][,,] <- DatBelPol[2:(Ntrtot+1), c('gp','genPred','obs','genSE','nofb'),] ;
+    SLPetc[[4]][1:Ntrtot,,] <- DatBelPol[2:(Ntrtot+1), c('gp','genPred','obs','genSE','nofb'),] ;
     colnames(SLPetc[[4]]) <- c('gp','pred','obs','SE','nofb'); # Just like real expt. data ...
     SLPetc[[5]] <- parMat;
     colnames(SLPetc[[5]]) <- c('accP0','sensi','sesh','a0min','n0','nMax','Tpred','Bpred','nBal');
@@ -381,12 +382,13 @@ nat2trLP3 <- function(p,check=1){  # From native to transformed.
 
 }  # end of nat2trLP3
 
-msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
+msLP3tr <- function(trParM, datAr, Pri=NA, check=0){
   # trParM: transf. directly by tr2natLP1  
   #   c('tr(SEb,SEmin)','tr(aB OR bB)','ln(a0min-1)',
   #                               'ln(n0-a0min-1)','tr(Nmax etc)','ln(Tresp)')
-  # gamPri has the means (row1) and sd's (row2) for gamma priors on ParM IN NATIVE
-  # SPACE !!!
+  # Pri has the means (row1) and sd's (row2) for priors on ParM IN NATIVE SPACE !!! REM:
+  #         c('accP0', 'sensi', 'sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal')
+  #            beta     gamma    gamma   gamma   gamma  gamma   gamma   norm    gamma
   
   if (is.null(dim(trParM))){   # turn trParM into matrix if it's a vector
     trParM <- matrix(trParM,nrow=1,byrow=TRUE)      }
@@ -400,16 +402,26 @@ msLP3tr <- function(trParM, datAr, gamPri=NA, check=0){
   parM <- matrix(NA,nrow=dim(trParM)[1],ncol=dim(trParM)[2]+1); 
   
   #A: If using this function in a situation where 1 or more parameters 
-  #are fixed, add this line (402). Change as necessary. For how nlm was done 
+  #are fixed, add this line (407). Change as necessary. For how nlm was done 
   #with fixed parameters, see end of file
   #trParM <- cbind( trParM[,1], log(5), log(2), trParM[,2], trParM[,3], trParM[,4], trParM[,5], trParM[,6], trParM[,7])
   parM <- tr2natLP3(trParM)
   
   # Cacl. the log prior for MAP purposes etc:
   mSLPrior <- 0;
-  if (length(gamPri)>1){  # legit prior must have 12 elements or so!
+  if (length(Pri)>1){  # legit prior must have 9 elements or so!
     for (ptN in 1:dim(trParM)[1]) {
-      mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,], gamPri[1,],gamPri[2,], log=TRUE)); #A: lower = better
+      #         c('accP0', 'sensi', 'sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal')
+      #            beta     gamma    gamma   gamma   gamma  gamma   gamma   norm    gamma
+      # First the two non-gamma-prior params:
+      mSLPrior <- -dbetaMS(parM[ptN,1], Pri[1,1],Pri[2,1],log=TRUE) -
+        dnorm(  parM[ptN,8], Pri[1,8],Pri[2,8],log=TRUE)
+      # now the gamma params, firs the ones with min. zero:
+      mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,c(2:4,7,9)], Pri[1,c(2:4,7,9)],Pri[2,c(2:4,7,9)], log=TRUE)); 
+      # n0 has min 1.0:
+      mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,5]-1.0, Pri[1,5],Pri[2,5], log=TRUE));
+      # nMax has min 3.0:
+      mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,5]-3.0, Pri[1,5],Pri[2,5], log=TRUE));
     }
   } 
   
