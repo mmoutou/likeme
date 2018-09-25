@@ -75,7 +75,7 @@ SLPsocio4 <- function(parMat,
   #
   # par. row must be: c('accP0', 'a0min', 'a0max', 'Tpred', 'Bpred ',
   # 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi','sesh')
-  # e.g.   parMat =   c(0.67,     1,     6,     1,      1,    0.5,     0.5,    5,    1,    1)
+  # e.g.   parMat =   c(6,     1,     4,     0.2,      0.1,    0.5,     0.5,    5,    1,    1)
   #        sensitivity of pAcc->SE, threshold of pAcc->SE etc.
   
   M <- 4
@@ -107,7 +107,7 @@ SLPsocio4 <- function(parMat,
   
   colnames(parMat) <-
     c(
-      'accP0',
+      'n0',
       'a0min',
       'a0max',
       'Tpred',
@@ -178,10 +178,9 @@ SLPsocio4 <- function(parMat,
     
     # Initial beliefs about ratings by others (groups)
     abnPol[1, aInd, ptN] <-
-      ((M - 1):0) * (parMat[ptN, 3] - parMat[ptN, 2]) / (M - 1) + parMat[ptN, 2]
+      ((M - 1):0) * (parMat[ptN, 3] - parMat[ptN, 2]) / (M-1) + parMat[ptN, 2]
     
-    abnPol[1, nInd, ptN] <-
-      (parMat[ptN, 2] + (parMat[ptN, 3] - parMat[ptN, 2]) / 2) / parMat[ptN, 1]
+    abnPol[1, nInd, ptN] <- parMat[ptN, 1]
     
     #because accP0 = mean of alphas / n, n = mean of alphas / accP0
     
@@ -209,9 +208,9 @@ SLPsocio4 <- function(parMat,
     # average acceptance rate would be:
     #nBal <- parMat[ptN,'nBal'];
     #aBal <- parMat[ptN,'accP0']*nBal;    bBal <- nBal - aBal;
-    n0   <- #A: CHECK THIS
-      (parMat[ptN, 2] + (parMat[ptN, 3] - parMat[ptN, 2]) / 2) / parMat[ptN, 1] #A: see above
-    accP <- sum(abnPol[1, aInd, ptN]) / (n0 * 4)
+    n0   <- parMat[ptN,3]
+    accP <- sum(abnPol[1, aInd, ptN]) / (n0*4)
+                                        
     #A: this is the actual experimental initial acceptance probability in pt's head generated from all these parms!!!
     # And this would correspond to an 'equilibrium SE' of:
     abnPol[1, 'expSE', ptN] <-
@@ -342,8 +341,6 @@ SLPsocio4 <- function(parMat,
         #
         #                      ( or possibly from some central tendency with independent noise)
         #
-        
-        #A: last close bracket before function closes
         
         #Updating SE
         
