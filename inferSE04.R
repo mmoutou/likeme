@@ -73,7 +73,7 @@ SLPsocio4 <- function(parMat,
   # parMat has rows with the parameters for each pt.
   # datAr has a page for each pt, and Ntr rows., gp pred  obs SE cols.
   #
-  # par. row must be: c('accP0', 'a0min', 'a0max', 'Tpred', 'Bpred ',
+  # par. row must be: c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ',
   # 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi','sesh')
   # e.g.   parMat =   c(6,     1,     4,     0.2,      0.1,    0.5,     0.5,    5,    1,    1)
   #        sensitivity of pAcc->SE, threshold of pAcc->SE etc.
@@ -182,8 +182,6 @@ SLPsocio4 <- function(parMat,
     
     abnPol[1, nInd, ptN] <- parMat[ptN, 1]
     
-    #because accP0 = mean of alphas / n, n = mean of alphas / accP0
-    
     abnPol[1, bInd, ptN] <-
       abnPol[1, nInd, ptN] - abnPol[1, aInd, ptN]
     
@@ -208,8 +206,8 @@ SLPsocio4 <- function(parMat,
     # average acceptance rate would be:
     #nBal <- parMat[ptN,'nBal'];
     #aBal <- parMat[ptN,'accP0']*nBal;    bBal <- nBal - aBal;
-    n0   <- parMat[ptN,3]
-    accP <- sum(abnPol[1, aInd, ptN]) / (n0*4)
+    n0   <- parMat[ptN,1]
+    accP <- (parMat[ptN,2]+parMat[ptN,3])/2/(n0)
                                         
     #A: this is the actual experimental initial acceptance probability in pt's head generated from all these parms!!!
     # And this would correspond to an 'equilibrium SE' of:
@@ -254,7 +252,7 @@ SLPsocio4 <- function(parMat,
         (1 - decayCoeffGroups)*abnPol[trN, aInd, ptN] + decayCoeffGroups
       abnPol[trN + 1, bInd, ptN] <-
         (1 - decayCoeffGroups)*abnPol[trN, bInd, ptN] + decayCoeffGroups
-      abnPol[trN + 1, bInd, ptN] <-
+      abnPol[trN + 1, nInd, ptN] <-
         abnPol[trN + 1, aInd, ptN] + abnPol[trN + 1, bInd, ptN]
       
       if (is.na(gpI)) {
@@ -304,7 +302,7 @@ SLPsocio4 <- function(parMat,
         if (!nofb) {
           # If not feedback was given, we leave all the a,b,n alone, which
           # are already in place. !nofb means that feedback was given, so:
-          apprfb = (datAr[trN, 3, ptN] + 1) / 2
+          apprfb = (datAr[trN, 3, ptN] + 1) / 2 
           # approval or not, i.e. convert from -1 1 to 0 1
           
           #A: update abns based on feedback
@@ -420,7 +418,7 @@ SLPsocio4 <- function(parMat,
     SLPetc[[4]][1:Ntrtot,,] <- DatBelPol[2:(Ntrtot+1), c('gp','genPred','obs','genSE','nofb'),] ;
     colnames(SLPetc[[4]]) <- c('gp','pred','obs','SE','nofb'); # Just like real expt. data ...
     SLPetc[[5]] <- parMat;
-    colnames(SLPetc[[5]]) <- c('accP0', 'a0min', 'a0max', 'Tpred', 'Bpred ','decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi','sesh');
+    colnames(SLPetc[[5]]) <- c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ','decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi','sesh');
     names(SLPetc) <-c('predSLnP','SESLnP','DatBelPol','genD','ptPar');
     
     return(SLPetc);
