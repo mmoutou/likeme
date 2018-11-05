@@ -75,7 +75,7 @@ SLPsocio4 <- function(parMat,
   #
   # par. row must be: c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ',
   # 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi','sesh')
-  # e.g.   parMat =   c(6,     1,     4,     0.2,      0.1,    0.5,     0.5,    5,    1,    1)
+  # e.g.   parMat =   c(6,     1,     4,     0.2,      0.1,    0.8,     0.8,    5,    1,    1.5)
   #        sensitivity of pAcc->SE, threshold of pAcc->SE etc.
   
   M <- 4
@@ -288,7 +288,7 @@ SLPsocio4 <- function(parMat,
             # i.e. if it's 1
             abnPol[trN + 1, obsPI, ptN] <- ratingP
             
-          } else {
+          } else { #A: either 1 or 0 (0 if genD)
             abnPol[trN + 1, obsPI, ptN] <- 1 - ratingP
             
           }
@@ -425,3 +425,152 @@ SLPsocio4 <- function(parMat,
   }
   
 } # end of SLPsocio4
+
+# Param transf. for SLPsocio4, using 10-element input.
+#par. row must be: c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ',
+# 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi','sesh')
+# e.g.   parMat =   c(6,     1,     4,     0.2,      0.1,    0.5,     0.5,    5,    1,    1)
+# to ln(n0-a0max-1), ln(a0min-1), ln(a0max-a0min), ln(Tpred), Bpred, atanh(2decayCoeffGroups-1)
+# atanh(2decayCoeffSelf-1), ln(weightSelf), ln(sensi), ln(sesh)
+# atanh(2x-1) restricts values to be between 0 and 1, ln restricts values to positive. 
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+tr2natLP4 <- function(trp,check=1){  # from transformed, i.e. -inf to inf, to native space
+  #  trp to be as follows;
+  #      c(ln(n0-a0max-1), ln(a0min-1), ln(a0max-a0min), ln(Tpred), Bpred, atanh(2decayCoeffGroups-1)
+  # atanh(2decayCoeffSelf-1), ln(weightSelf), ln(sensi), ln(sesh))
+  #  Returns:  c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ',
+  # 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi','sesh')
+  
+  eps <- 1e-10;  #  eps is a tiny constant that can be used to guarantee
+  #  that rounding errors, underflows etc. don't ruin strict inequalities.
+  
+  if (check){ if (is.null(dim(trp))){   # convert vec to mat if need be
+    trp <- matrix(trp,nrow=1,byrow=TRUE) }   }
+  ptTot <- dim(trp)[1]; 
+  p <- matrix(NA,nrow=ptTot,ncol=dim(trp)[2]); 
+
+  #n0 (1), a0min(2), a0max (3)
+  p[,2] <- exp(trp[,2]);           # a0min
+  p[,3] <- p[,2] + exp(trp[,3]);  # a0max
+  p[,1] <- 1 + p[,3] + exp(trp[,1]);  # n0
+  
+  #the rest: 
+  p[,c(4,8,9,10)] <- exp(trp[,c(4,8,9,10)]);  # Tpred, weightSelf, sensi, sesh
+  p[,5] <- trp[,5];
+  p[,6] <- 0.5*(1 + tanh(trp[,6])) ; # decayCoeffGroups
+  p[,7] <- 0.5*(1 + tanh(trp[,7])) ; # decayCoeffSelf
+  
+  
+  if (check){ colnames(p) <- c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ', 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi','sesh') };
+  return(p); 
+} 
+
+nat2trLP4 <- function(p,check=1){  # From native to transformed.
+  #  Returns trp as follows;
+  #      c(ln(n0-a0max-1), ln(a0min), ln(a0max-a0min), ln(Tpred), Bpred, atanh(2decayCoeffGroups-1)
+  # atanh(2decayCoeffSelf-1), ln(weightSelf), ln(sensi), ln(sesh))
+  
+  
+  eps   <- exp(-25);   # So that for R 1+eps > 1
+  minLn <- -1000;   # so that for R exp(minLn) == 0, exp(-minLn) == +Inf
+  
+  # Basic check - of argument format
+  if (check > 0){ if (is.null(dim(p))){   # convert vec to mat if need be
+    p <- matrix(p,nrow=1,byrow=TRUE) }   }    
+  ptTot <- dim(p)[1]; 
+  # Detailed check
+  if (check > 1){
+    for (ptN in 1:ptTot) {
+      if (any(p[ptN,c(2,4,8,9,10)] < -2*eps)) { #A: why was it sum?
+        print(paste('parMat 2,4,8,9,10 =',p[ptN,c(2,4,8,9,10)]));
+        stop('--> ln of -ve    error' ); 
+      }
+      if ((p[ptN,1]-p[ptN,3]-1) < -2*eps) { 
+        stop('ln(n0-a0max-1) error' );
+      }
+      
+      if ((p[ptN,3]-p[ptN,2]) < -2*eps) {
+        stop('ln(a0max-a0min) error' ); 
+      }
+      
+    }
+  }
+  
+  trp <- matrix(NA,nrow=ptTot,ncol=dim(p)[2]); 
+  
+  #coordinating transformations of n0 (1), a0min (2) and a0max (3)
+   
+  y <- p[,1]-p[,3]-1;  y[y<eps] <- eps; 
+  trp[,1] <- log(y);            # ln(n0-a0min-1) 
+  y <- p[,2];        y[y<eps] <- eps; 
+  trp[,2] <- log(y);            # ln(a0min-1)
+  y <- p[,3]-p[,2]  ;  y[y<eps] <- eps; 
+  trp[,3] <- log(y);            # ln(a0max-a0min)
+  
+  # the others : ln(Tpred) (4), Bpred (5), atanh(2decayCoeffGroups-1) (6)
+  # atanh(2decayCoeffSelf-1) (7), ln(weightSelf) (8), ln(sensi) (9), ln(sesh) (10)
+  
+  trp[,5]  <- p[,5]; #Bpred
+  trp[,6]  <- atanh(2*p[,6]-1); #atanh(2decayCoeffGroups-1)
+  trp[,7]  <- atanh(2*p[,7]-1); #atanh(2decayCoeffSelf-1) 
+  y <- p[,c(4,8,9,10)]; y[y<eps] <- eps; trp[,c(4,8,9,10)] <- log(y); #ln(Tpred), ln(weightSelf), ln(sensi), ln(sesh)
+           
+  # rough bounding of under / overflows:
+  trp[trp < minLn] <- minLn;    trp[trp > -minLn] <- -minLn;
+  
+  
+  if (check){ colnames(trp)<- c('ln(n0-a0max-1)', 'ln(a0min)', 'ln(a0max-a0min)', 'ln(Tpred)', 'Bpred', 'atanh(2decayCoeffGroups-1)', 'atanh(2decayCoeffSelf-1)', 'ln(weightSelf)', 'ln(sensi)', 'ln(sesh)') }
+  return(trp);
+  
+}  # end of nat2trLP3
+
+msLP4tr <- function(trParM, datAr, Pri=NA, check=0){
+  # trParM: transf. directly by tr2natLP4 
+  
+  #A: This bit is from msLP3tr - will edit later
+  #   c('tr(SEb,SEmin)','tr(aB OR bB)','ln(a0min-1)',
+  #                               'ln(n0-a0min-1)','tr(Nmax etc)','ln(Tresp)')
+  # Pri has the means (row1) and sd's (row2) for priors on ParM IN NATIVE SPACE !!! REM:
+  #         c('accP0', 'sensi', 'sesh', 'a0min', 'n0', 'nMax','Tpred', 'Bpred','nBal')
+  #            beta     gamma    gamma   gamma   gamma  gamma   gamma   norm    gamma
+  
+  if (is.null(dim(trParM))){   # turn trParM into matrix if it's a vector
+    trParM <- matrix(trParM,nrow=1,byrow=TRUE)      }
+  
+  if (check){
+    if ((dim(datAr)[2]<4) || (dim(trParM)[2]<10)){
+      stop('arguments trParM or datAr appear to have wrong dimensions');  }
+  }
+  parM <- tr2natLP4(trParM)
+  
+  # Cacl. the log prior for MAP purposes etc: #A: this is from SLPsocio3 - to edit later
+  mSLPrior <- 0;
+  if (length(Pri)>1){  # legit prior must have 9 elements or so!
+    for (ptN in 1:dim(trParM)[1]) {
+      #            'n0', 'a0min', 'a0max', 'Tpred', 'Bpred ', 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi’, 'sesh'
+      #            gamma  gamma    gamma    gamma    norm          beta                beta            gamma      gamma     gamma
+      # First the three non-gamma-prior params:
+      mSLPrior <- -dbetaMS(parM[ptN,6], Pri[1,6],Pri[2,6],log=TRUE) 
+      -dbetaMS(parM[ptN,7], Pri[1,7],Pri[2,7],log=TRUE) #mean, SD
+      -dnorm(  parM[ptN,5], Pri[1,5],Pri[2,5],log=TRUE) #Bpred. Note signs (both -ve). Please also note that SD for 6,7 prior must be between 0 and 0.25 due to nature of it being converted into a beta distribution.
+      # now the gamma params, firs the ones with min. zero:
+      mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,c(2:4,8:10)], Pri[1,c(2:4,8:10)],Pri[2,c(2:4,8:10)], log=TRUE)); 
+      # n0 has min 1.0:
+      mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,1]-1.0, Pri[1,1],Pri[2,1], log=TRUE));
+    }
+  } 
+  
+  # debug line:
+  #print(paste('Prior density:',mSLPrior))
+  #print(cbind(parM,trParM));
+  
+  if (mSLPrior == Inf){  # If we are in an a priori prohibited parameter region
+    # do not attempt to calculated the likelihood - it will be nonsense anyway.
+    return(Inf); 
+  } else {
+    return ( mSLPrior - SLPsocio4( parM, datAr, onlySLP=1, check) ); #A: this is what is minimized - the difference between priors and actual (as gone through SLPsocio1) #To change to only SESLnP or only predSLnP, use eg. SLPsocio3(parM, datAr, onlySLP=0, check)$SESLnP
+  }
+  
+} 
