@@ -580,7 +580,6 @@ msLP4tr <- function(trParM, datAr, Pri=NA, check=0){
 } 
 
 #start of nlm function
-#to 
 
 load("loadfornlm.RData") #this contains bestsofar, tryPmatrix, datArW03, and flatpriors
 
