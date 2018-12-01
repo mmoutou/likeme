@@ -200,6 +200,8 @@ SLPsocio4 <- function(parMat,
     abnPol[1, SEbI, ptN] <- mean(abnPol[1, bInd, ptN])
     abnPol[1, SEnI, ptN] <- mean(abnPol[1, nInd, ptN])
     
+    PE = 0
+    
     # The shift or offset sesh has to be consistent with baseline SE and other beliefs.
     # so that if expectations above the approval rates etc. turned out to be true,
     # then self-evaluation would, remain stable. So, if the above were true, the
@@ -324,10 +326,11 @@ SLPsocio4 <- function(parMat,
               -abnPol[trN + 1, aInd[gpI], ptN] / abnPol[trN + 1, nInd[gpI], ptN]
           }
           
-          
-          
+       
         } # end if valid feedback given
-        
+        else {
+          PE = 0
+        }  
         
         
         # Consider SE as a map from prob. of acceptance to a scale over c(0,1)
@@ -340,7 +343,7 @@ SLPsocio4 <- function(parMat,
         #                      ( or possibly from some central tendency with independent noise)
         #
         
-        #Updating SE
+        #Updating SE 
         
         abnPol[trN + 1, SEaI, ptN] <-
           decayCoeffSelf* (abnPol[trN + 1, SEaI, ptN] - 1) + 1 + weightSelf * max(PE, 0) #A: note change in decayCoeffSelf!!! to 1-
@@ -438,7 +441,7 @@ SLPsocio4 <- function(parMat,
 
 tr2natLP4 <- function(trp,check=1){  # from transformed, i.e. -inf to inf, to native space
   #  trp to be as follows;
-  #      c(ln(n0-a0max-1), ln(a0min-1), ln(a0max-a0min), ln(Tpred), Bpred, atanh(2decayCoeffGroups-1)
+  #      c(ln(n0-a0max-1), ln(a0min), ln(a0max-a0min), ln(Tpred), Bpred, atanh(2decayCoeffGroups-1)
   # atanh(2decayCoeffSelf-1), ln(weightSelf), ln(sensi), ln(sesh))
   #  Returns:  c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ',
   # 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi','sesh')
@@ -547,15 +550,16 @@ msLP4tr <- function(trParM, datAr, Pri=NA, check=0){
   
   # Cacl. the log prior for MAP purposes etc: #A: this is from SLPsocio3 - to edit later
   mSLPrior <- 0;
-  if (length(Pri)>1){  # legit prior must have 9 elements or so!
+  if (length(Pri)>1){  # legit prior must have 20 elements
     for (ptN in 1:dim(trParM)[1]) {
       #            'n0', 'a0min', 'a0max', 'Tpred', 'Bpred ', 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi’, 'sesh'
-      #            gamma  gamma    gamma    gamma    norm          beta                beta            gamma      gamma     gamma
-      # First the three non-gamma-prior params:
-      mSLPrior <- -dbetaMS(parM[ptN,6], Pri[1,6],Pri[2,6],log=TRUE) 
-      -dbetaMS(parM[ptN,7], Pri[1,7],Pri[2,7],log=TRUE) #mean, SD
+      #            gamma  gamma    gamma    gamma    norm      beta                  beta         gamma      gamma     gamma
+      # First the non-gamma-prior param:
+      mSLPrior <- 
+      -dbetaMS(parM[ptN,6], Pri[1,6],Pri[2,6])
+      -dbetaMS(parM[ptN,7], Pri[1,7],Pri[2,7])
       -dnorm(  parM[ptN,5], Pri[1,5],Pri[2,5],log=TRUE) #Bpred. Note signs (both -ve). Please also note that SD for 6,7 prior must be between 0 and 0.25 due to nature of it being converted into a beta distribution.
-      # now the gamma params, firs the ones with min. zero:
+      # now the gamma params, first the ones with min. zero:
       mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,c(2:4,8:10)], Pri[1,c(2:4,8:10)],Pri[2,c(2:4,8:10)], log=TRUE)); 
       # n0 has min 1.0:
       mSLPrior <- mSLPrior - sum(dgammaMS(parM[ptN,1]-1.0, Pri[1,1],Pri[2,1], log=TRUE));
@@ -574,3 +578,122 @@ msLP4tr <- function(trParM, datAr, Pri=NA, check=0){
   }
   
 } 
+
+#start of nlm function
+#to 
+
+load("loadfornlm.RData") #this contains bestsofar, tryPmatrix, datArW03, and flatpriors
+
+beliefModelFit <- function(pts,Par0) {
+  ml1fit <- list();
+  ml1res <- matrix(NA,nrow=dim(datArW03)[3],ncol=15);
+  dimnames(ml1res)[[2]] <- c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ', 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi', 'sesh', 'predSLP', 'SESLD','SEcor','predProb','BIC');
+  
+  
+  for (ptN in pts){ #1:dim(datArW03)[3] ){
+    
+    
+    D <- array(NA,c(dim(datArW03)[1:2],1));  # Create & clear the working array
+    D[,,1] <- datArW03[,,ptN];
+    dimnames(D)[[2]] <- c('gp','pred','obs','SE','nofb');
+    dimnames(D)[[3]] <- ptN;
+    ml1fit[[ptN]] <- list();
+    mPD <- Inf;
+    
+    tryPmatrixwbest<-matrix(NA,nrow=129,ncol=10)
+    tryPmatrixwbest[1:128,] <- tryPmatrix
+    tryPmatrixwbest[129,] <-bestsofar[ptN,]
+    allsets <- matrix(NA,nrow=129,ncol=12)
+    
+    for (set in 1:129) { #for (set in c(1,25,50,75,100,125)) { for testing
+      tryP = tryPmatrixwbest[set,]
+      iniLen=length(tryP);
+      
+      ## this part included if further randomised attempts are wanted - remove the double #s and add attempts as an argument
+      ##for (attempt in 1:attempts){  # 2-10 for testing; try (10*iniLen) for real { #put attempts back into function as an argument if you want
+      ##if (attempt == 1){
+      ##    iniTrPar <- nat2trLP4(tryP);
+      ##} else {
+      ##    iniTrPar <- nat2trLP4(tryP) * runif(10,0.75,1.25);
+      ##}
+      ## # atI <- attempt %% iniLen; if (atI == 0){atI <- iniLen;};
+      ## #if (attempt > 11) {
+      ## #    iniTrPar <- as.numeric(iniTrParM[atI,] * runif(10,0.8,1.2));
+      ## #}
+      
+      print(paste('ptN:',ptN,';  fit attempt:', attempt));  print(paste('Init. Cond:', paste(round(tr2natLP4(iniTrPar),3),collapse=',')));
+      try( fitAttempt <<- nlm(msLP4tr, iniTrPar, D, Par0, print.level=2, iterlim=500)
+           
+      ); # Par0, print.level=2, iterlim=500) 
+      
+      
+      
+      if (vecTRUE(length(fitAttempt$estimate)>1)){
+        if ( vecTRUE(fitAttempt$minimum < mPD) || !(vecTRUE(length(ml1fit[[ptN]][[1]])>1)) ){
+          mPD <- fitAttempt$minimum;
+          ml1fit[[ptN]][[1]] <- fitAttempt;
+        }
+        #now to save estp and summed log likelihoods for all trials
+        estpOfAttempt <- (tr2natLP4(fitAttempt$estimate)) ;
+        allsets[set,1:10] <- estpOfAttempt
+        allsets[set,11]   <- SLPsocio4(estpOfAttempt, D)$SESLnP
+        allsets[set,12]   <- SLPsocio4(estpOfAttempt, D)$predSLnP
+        ml1fit[[ptN]][[3]] <- allsets 
+      }
+      
+      
+      ## } 
+    } # End exploration of initial conditions
+    est10p <- (tr2natLP4(ml1fit[[ptN]][[1]]$estimate)) ;
+    ml1fit[[ptN]][[2]] <- SLPsocio4(est10p, D);
+    names(ml1fit[[ptN]]) <- c('NLM','SLP','alltrials')
+    # output array storage
+    ml1res[ptN,1:10] <- tr2natLP4(ml1fit[[ptN]][[1]]$estimate);
+    ml1res[ptN,11]   <- ml1fit[[ptN]][[2]][[1]];
+    ml1res[ptN,12]   <- ml1fit[[ptN]][[2]][[2]];
+    ml1res[ptN,13]   <- round(cor(na.omit(data.frame(D[,'SE',1], expSE)))[1,2],2) #SE correlation, 2sf
+    ml1res[ptN,14]   <- exp(ml1res[ptN,11]/192) #percentage of right predictions 
+    #now the individual BIC
+    LnforBIC = ml1fit[[ptN]][[2]]$predSLnP + ml1fit[[ptN]][[2]]$SESLnP 
+    nforBIC = length(na.omit(D[,'pred',1]))+ length(na.omit(D[,'SE',1])) 
+    kforBIC = 10 #number of params
+    ml1res[ptN,15]   <- log(nforBIC)*kforBIC - 2*LnforBIC #BIC formula
+    
+    #now to save images - here they are saved in the baseDir
+    mypath <- file.path(baseDir,paste("myplot_", ptN, ".png", sep = "")) 
+    png(file=mypath, width = 912, height = 742, units = "px")
+    
+    # Prepare for graphs with real & randomly generated data for visual inspection:
+    v <- D[,'SE',1]; v <- 1+v; v<- v/v;  # create vector of 1's and NA's, where 1 is when an SE was present
+    expSE <- ml1fit[[ptN]][[2]][[3]][,'expSE',1]*c(NA,v);  expSE <- expSE[-1];
+    # a coarse analysis to see how much pts. SE responed to positive
+    # feedback etc:
+    d <- ml1fit[[ptN]][[2]][[3]][,,1] ;  d <- na.omit(TDSE(d));
+    c <- round(cor(d[,c('sPE','TDSE')])[1,2],2);
+    plot(na.omit(d[,c('sPE','TDSE')]), main=paste('pt',ptN,'  cor=',c));
+    c <- round(cor(d[,c('sAp','TDSE')])[1,2],2);
+    plot(na.omit(d[,c('sAp','TDSE')]), main=paste('pt',ptN,'  cor=',c));
+    # Plotting of expected, measured and generated SE :
+    c <- round(cor(na.omit(data.frame(D[,'SE',1], expSE)))[1,2],2)
+    d2plot <- (ml1fit[[ptN]][[2]][[3]][,c('SE','expSE','genSE'),1])
+    
+    plot(d2plot[,'SE'],t='p',col='green4',pch=19,lwd=5,
+         main=paste('MAP fit, counting model (SLPsocio4):   pt',ptN,';  cor=',c,'\n[green: measured;   blue:fitted,  pink: generated from fit]'),
+         xlab='trial number',
+         ylab='Self Evaluation');
+    
+    lines(d2plot[,'expSE'],t='l',col='blue',lwd=3);
+    lines(d2plot[,'genSE'],t='l',col='pink3');
+    
+    dev.off()
+    
+    #print(ml1res[1:ptN,])
+    save.image(paste(baseDir,"socio1fitTEST.RData"))
+    ml1fit <<- ml1fit #so that these objects have global assignment
+    ml1res <<- ml1res #otherwise, only exist within the function
+  }
+}
+beliefModelFit(1:21,flatpriors)
+save(ml1fit, ml1res, file = "nlmoutputs.RData") #outside because they only need to be 
+write.csv(ml1res, file = "ml1res.csv") #saved after all data run
+#end of nlm function
