@@ -580,6 +580,7 @@ msLP4tr <- function(trParM, datAr, Pri=NA, check=0){
 } 
 
 #start of nlm function
+#if you would like it to have only one argument, set Par0 = flatpriors and remove Par0 as an argument
 
 load("loadfornlm.RData") #this contains bestsofar, tryPmatrix, datArW03, and flatpriors
 
