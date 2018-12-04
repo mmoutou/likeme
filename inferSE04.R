@@ -552,7 +552,7 @@ msLP4tr <- function(trParM, datAr, Pri=NA, check=0){
   mSLPrior <- 0;
   if (length(Pri)>1){  # legit prior must have 20 elements
     for (ptN in 1:dim(trParM)[1]) {
-      #            'n0', 'a0min', 'a0max', 'Tpred', 'Bpred ', 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi’, 'sesh'
+      #            'n0', 'a0min', 'a0max', 'Tpred', 'Bpred ', 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensiâ, 'sesh'
       #            gamma  gamma    gamma    gamma    norm      beta                  beta         gamma      gamma     gamma
       # First the non-gamma-prior param:
       mSLPrior <- 
@@ -579,7 +579,7 @@ msLP4tr <- function(trParM, datAr, Pri=NA, check=0){
   
 } 
 
-#start of nlm function
+#start of nlm function 
 #if you would like it to have only one argument, set Par0 = flatpriors and remove Par0 as an argument
 
 load("loadfornlm.RData") #this contains bestsofar, tryPmatrix, datArW03, and flatpriors
@@ -605,9 +605,10 @@ beliefModelFit <- function(pts,Par0) {
     tryPmatrixwbest[129,] <-bestsofar[ptN,]
     allsets <- matrix(NA,nrow=129,ncol=12)
     
-    for (set in 1:129) { #for (set in c(1,25,50,75,100,125)) { for testing
-      tryP = tryPmatrixwbest[set,]
+    for (attempt in 1:129) { #for (attempt in c(1,25,50,75,100,128)) { for testing
+      tryP = tryPmatrixwbest[attempt,]
       iniLen=length(tryP);
+      iniTrPar <- nat2trLP4(tryP)
       
       ## this part included if further randomised attempts are wanted - remove the double #s and add attempts as an argument
       ##for (attempt in 1:attempts){  # 2-10 for testing; try (10*iniLen) for real { #put attempts back into function as an argument if you want
@@ -635,9 +636,9 @@ beliefModelFit <- function(pts,Par0) {
         }
         #now to save estp and summed log likelihoods for all trials
         estpOfAttempt <- (tr2natLP4(fitAttempt$estimate)) ;
-        allsets[set,1:10] <- estpOfAttempt
-        allsets[set,11]   <- SLPsocio4(estpOfAttempt, D)$SESLnP
-        allsets[set,12]   <- SLPsocio4(estpOfAttempt, D)$predSLnP
+        allsets[attempt,1:10] <- estpOfAttempt
+        allsets[attempt,11]   <- SLPsocio4(estpOfAttempt, D)$SESLnP
+        allsets[attempt,12]   <- SLPsocio4(estpOfAttempt, D)$predSLnP
         ml1fit[[ptN]][[3]] <- allsets 
       }
       
@@ -646,7 +647,7 @@ beliefModelFit <- function(pts,Par0) {
     } # End exploration of initial conditions
     est10p <- (tr2natLP4(ml1fit[[ptN]][[1]]$estimate)) ;
     ml1fit[[ptN]][[2]] <- SLPsocio4(est10p, D);
-    names(ml1fit[[ptN]]) <- c('NLM','SLP','alltrials')
+    names(ml1fit[[ptN]]) <- c('NLM','SLP','allattempts')
     # output array storage
     ml1res[ptN,1:10] <- tr2natLP4(ml1fit[[ptN]][[1]]$estimate);
     ml1res[ptN,11]   <- ml1fit[[ptN]][[2]][[1]];
@@ -693,7 +694,7 @@ beliefModelFit <- function(pts,Par0) {
     ml1res <<- ml1res #otherwise, only exist within the function
   }
 }
-beliefModelFit(1:21,flatpriors)
+beliefModelFit(1:21,priors)
 save(ml1fit, ml1res, file = "nlmoutputs.RData") #outside because they only need to be 
 write.csv(ml1res, file = "ml1res.csv") #saved after all data run
 #end of nlm function
