@@ -668,7 +668,6 @@ beliefModelFit <- function(pts,Par0) {
     png(file=mypath, width = 912, height = 742, units = "px")
     
     # Prepare for graphs with real & randomly generated data for visual inspection:
-    # create vector of 1's and NA's, where 1 is when an SE was present
     # a coarse analysis to see how much pts. SE responed to positive
     # feedback etc:
     d <- ml1fit[[ptN]][[2]][[3]][,,1] ;  d <- na.omit(TDSE(d));
