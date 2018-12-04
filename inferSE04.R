@@ -587,7 +587,7 @@ load("loadfornlm.RData") #this contains bestsofar, tryPmatrix, datArW03, and fla
 beliefModelFit <- function(pts,Par0) {
   ml1fit <- list();
   ml1res <- matrix(NA,nrow=dim(datArW03)[3],ncol=15);
-  dimnames(ml1res)[[2]] <- c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ', 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi', 'sesh', 'predSLP', 'SESLD','SEcor','predProb','BIC');
+  dimnames(ml1res)[[2]] <- c('n0', 'a0min', 'a0max', 'Tpred', 'Bpred ', 'decayCoeffGroups', 'decayCoeffSelf', 'weightSelf', 'sensi', 'sesh', 'predSLP', 'SESLD','SEcor','crossEntropy','BIC');
   
   
   for (ptN in pts){ #1:dim(datArW03)[3] ){
@@ -637,8 +637,9 @@ beliefModelFit <- function(pts,Par0) {
         #now to save estp and summed log likelihoods for all trials
         estpOfAttempt <- (tr2natLP4(fitAttempt$estimate)) ;
         allsets[attempt,1:10] <- estpOfAttempt
-        allsets[attempt,11]   <- SLPsocio4(estpOfAttempt, D)$SESLnP
-        allsets[attempt,12]   <- SLPsocio4(estpOfAttempt, D)$predSLnP
+        SLPofattempt <- SLPsocio4(estpOfAttempt, D)
+        allsets[attempt,11]   <- SLPofattempt$SESLnP
+        allsets[attempt,12]   <- SLPofattempt$predSLnP
         ml1fit[[ptN]][[3]] <- allsets 
       }
       
@@ -652,8 +653,10 @@ beliefModelFit <- function(pts,Par0) {
     ml1res[ptN,1:10] <- tr2natLP4(ml1fit[[ptN]][[1]]$estimate);
     ml1res[ptN,11]   <- ml1fit[[ptN]][[2]][[1]];
     ml1res[ptN,12]   <- ml1fit[[ptN]][[2]][[2]];
+    v <- D[,'SE',1]; v <- 1+v; v<- v/v;
+    expSE <- ml1fit[[ptN]][[2]][[3]][,'expSE',1]*c(NA,v);  expSE <- expSE[-1]; #previously from line 669
     ml1res[ptN,13]   <- round(cor(na.omit(data.frame(D[,'SE',1], expSE)))[1,2],2) #SE correlation, 2sf
-    ml1res[ptN,14]   <- exp(ml1res[ptN,11]/192) #percentage of right predictions 
+    ml1res[ptN,14]   <- exp(ml1res[ptN,11]/192) #cross-entropy
     #now the individual BIC
     LnforBIC = ml1fit[[ptN]][[2]]$predSLnP + ml1fit[[ptN]][[2]]$SESLnP 
     nforBIC = length(na.omit(D[,'pred',1]))+ length(na.omit(D[,'SE',1])) 
@@ -665,8 +668,7 @@ beliefModelFit <- function(pts,Par0) {
     png(file=mypath, width = 912, height = 742, units = "px")
     
     # Prepare for graphs with real & randomly generated data for visual inspection:
-    v <- D[,'SE',1]; v <- 1+v; v<- v/v;  # create vector of 1's and NA's, where 1 is when an SE was present
-    expSE <- ml1fit[[ptN]][[2]][[3]][,'expSE',1]*c(NA,v);  expSE <- expSE[-1];
+    # create vector of 1's and NA's, where 1 is when an SE was present
     # a coarse analysis to see how much pts. SE responed to positive
     # feedback etc:
     d <- ml1fit[[ptN]][[2]][[3]][,,1] ;  d <- na.omit(TDSE(d));
